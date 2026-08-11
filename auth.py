@@ -52,12 +52,6 @@ def check_password() -> bool:
     return False
 
 
-def require_login() -> None:
-    """Bloqueia a página inteira até o usuário estar autenticado."""
-    if not check_password():
-        st.stop()
-
-
 def logout_button() -> None:
     if st.sidebar.button("Sair"):
         for key in ("authenticated", "username", "display_name"):

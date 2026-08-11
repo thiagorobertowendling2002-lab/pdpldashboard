@@ -1,13 +1,8 @@
 import plotly.graph_objects as go
 import streamlit as st
-from auth import require_login, logout_button
-from branding import APP_NAME, COLOR_PRIMARY, COLOR_SECONDARY, page_icon, render_footer, render_header
+from branding import COLOR_PRIMARY, COLOR_SECONDARY, render_footer, render_header
 from data_loader import load_producers
 
-st.set_page_config(page_title=f"{APP_NAME} - Produtores PDPL", page_icon=page_icon(), layout="wide")
-
-require_login()
-logout_button()
 render_header("Produtores PDPL")
 
 
