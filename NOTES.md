@@ -68,15 +68,25 @@ Cada item carrega a `section` (mapeada pelo prefixo numérico da pergunta, ex.
 "5." → "Produção e Rebanho") usada para organizar as abas do dashboard.
 
 `charts.py` tem as funções de gráfico (donut, ranked_bar, histogram,
-composition_bar, box_by_category, scatter, correlation_heatmap, grouped_bar_crosstab),
-todas usando a paleta da marca (teal/verde) e sem gráfico de pizza com muitas
-cores — regras de cor/forma seguidas conforme a skill de dataviz do Claude Code.
+composition_bar, box_by_category, scatter, correlation_heatmap, grouped_bar_crosstab,
+parallel_categories), todas usando a paleta da marca (teal/verde) e sem gráfico de
+pizza com muitas cores — regras de cor/forma seguidas conforme a skill de dataviz
+do Claude Code.
 
-O dashboard tem: filtros globais (município/tipologia/estrato/sistema) que
-recalculam tudo, uma aba por seção do questionário, uma aba "Explorador" pra
-comparar quaisquer duas variáveis (escolhe o tipo de gráfico certo sozinho:
-dispersão, boxplot ou barras agrupadas conforme os tipos), e uma aba de mapa de
-calor de correlação entre as variáveis numéricas.
+O dashboard tem: filtros globais fixos (município/tipologia/estrato/sistema) +
+um **filtro avançado** que filtra por *qualquer* pergunta da planilha (categórica
+ou opção de múltipla escolha, ex: "tem PRONAF"), uma aba por seção do questionário,
+uma aba "Explorador" pra comparar quaisquer duas variáveis (escolhe o tipo de
+gráfico certo sozinho: dispersão, boxplot ou barras agrupadas conforme os tipos —
+inclui cada opção de múltipla escolha como variável própria), uma aba "Comparação
+e Filtragem entre Parâmetros" que cruza até 5 variáveis de qualquer tipo num
+diagrama de categorias paralelas (`go.Parcats`, com números divididos em faixas
+Baixo/Médio/Alto pra virarem categorias) mais uma tabela detalhada por produtor, e
+uma aba de mapa de calor de correlação entre as variáveis numéricas.
+
+`build_variable_options()` em `views/produtores_pdpl.py` é o helper compartilhado
+que achata categóricas + numéricas + cada opção de múltipla escolha numa lista só,
+usado tanto pelo filtro avançado quanto pelo Explorador e pela aba de comparação.
 
 Pra estender esse dashboard (novas seções, KPIs) não precisa mexer no motor de
 classificação — só adicionar/editar helpers em `views/produtores_pdpl.py`. Se
