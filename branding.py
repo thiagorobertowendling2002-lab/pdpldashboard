@@ -7,7 +7,7 @@ from PIL import Image
 APP_NAME = "PDPL/PCEPL-UFV"
 
 HOMAGE_QUOTE = "O fácil já foi feito."
-HOMAGE_AUTHOR = "GOMES, Sebastião Provezano."
+HOMAGE_AUTHOR = "GOMES, Sebastião Teixeira."
 
 COLOR_PRIMARY = "#1C9CB4"  # teal do arco/logo PDPL
 COLOR_SECONDARY = "#008448"  # verde do logo PDPL
