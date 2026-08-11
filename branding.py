@@ -4,7 +4,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image
 
-APP_NAME = "PDPL/PCEPL-UFV"
+APP_NAME = "PDPL - UFV"
 
 HOMAGE_QUOTE = "O fácil já foi feito."
 HOMAGE_AUTHOR = "GOMES, Sebastião Teixeira."
@@ -114,4 +114,4 @@ def render_quote() -> None:
 
 def render_footer() -> None:
     st.markdown("---")
-    st.caption(f"{APP_NAME} — Universidade Federal de Viçosa (UFV)")
+    st.caption(f"{APP_NAME} — Universidade Federal de Viçosa")
