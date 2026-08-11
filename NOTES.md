@@ -5,28 +5,37 @@
 - App no ar: https://dashboardpdpl.streamlit.app/
 
 ## Estrutura
-- `app.py` — página inicial (exige login)
+- `app.py` — roteador central: faz login (`check_password()`), e só então monta o
+  menu com `st.navigation()`. **Não existe mais pasta `pages/`** — Streamlit mostra
+  automaticamente os nomes de tudo que está em `pages/` no menu lateral mesmo antes
+  do login, então trocamos por navegação controlada manualmente (ver "Problemas
+  resolvidos" abaixo).
 - `auth.py` — lógica de login (bcrypt + `st.session_state`)
 - `branding.py` — identidade visual (logo, cores, cabeçalho, citação de homenagem)
-- `pages/` — cada arquivo `.py` aqui vira uma página nova no menu lateral automaticamente
+- `views/` — cada arquivo `.py` aqui é uma página, registrada manualmente em
+  `app.py` via `st.Page(...)`. Só aparece no menu depois do login.
 - `assets/logo.png` — logo do PDPL/PCEPL-UFV
 - `scripts/hash_password.py` — gera hash bcrypt para novos usuários
 
 ## Como adicionar um dashboard novo
-Copiar o padrão de `pages/1_Exemplo_Dashboard.py`:
+1. Criar o arquivo em `views/nome_do_dashboard.py`, seguindo o padrão de
+   `views/produtores_pdpl.py`:
 ```python
 import streamlit as st
-from auth import require_login, logout_button
-from branding import APP_NAME, page_icon, render_footer, render_header
+from branding import render_footer, render_header
 
-st.set_page_config(page_title=f"{APP_NAME} - Nome", page_icon=page_icon(), layout="wide")
-require_login()
-logout_button()
 render_header("Nome do Dashboard")
 
 # conteúdo aqui
 
 render_footer()
+```
+   Não precisa chamar login, logout ou `st.set_page_config` — isso já é feito uma
+   vez só em `app.py`.
+
+2. Registrar a página em `app.py`, dentro da lista do `st.navigation([...])`:
+```python
+st.Page("views/nome_do_dashboard.py", title="Nome do Dashboard"),
 ```
 
 ## Dados dos dashboards
@@ -82,3 +91,8 @@ externa usando credenciais guardadas em Secrets.
   repositório público (não depende do App para repos públicos).
 - **Login "usuário ou senha inválidos" em produção**: Secrets não configurados no painel
   do Streamlit Cloud (arquivo local `secrets.toml` não vai pro GitHub de propósito).
+- **Nome do dashboard aparecia no menu antes do login**: a pasta `pages/` do Streamlit
+  gera o menu lateral automaticamente com base nos arquivos que existem ali, mesmo que
+  o conteúdo de cada página exija login pra aparecer. Resolvido trocando `pages/` por
+  `views/` + `st.navigation()` chamado manualmente em `app.py`, só depois de confirmar
+  o login — assim o menu nem existe enquanto não autenticado.
