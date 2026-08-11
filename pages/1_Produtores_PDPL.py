@@ -16,7 +16,15 @@ def fmt_br(value: float, decimals: int = 1) -> str:
     return text.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-df = load_producers()
+try:
+    df = load_producers()
+except FileNotFoundError:
+    st.info(
+        "Este dashboard ainda não tem dados publicados neste ambiente — "
+        "disponível apenas rodando localmente por enquanto."
+    )
+    render_footer()
+    st.stop()
 
 st.caption(f"Amostra de {len(df)} produtores entrevistados pelo PDPL/PCEPL-UFV.")
 
