@@ -2,7 +2,7 @@
 
 ## Links
 - Repositório GitHub: https://github.com/thiagorobertowendling2002-lab/pdpldashboard (atualmente **público** — ver seção "Privacidade" abaixo)
-- App no ar: _(preencher com a URL do Streamlit Cloud)_
+- App no ar: https://dashboardpdpl.streamlit.app/
 
 ## Estrutura
 - `app.py` — página inicial (exige login)
