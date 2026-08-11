@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Dados confidenciais dos produtores - nunca comitar (repo pode estar publico)
+data/

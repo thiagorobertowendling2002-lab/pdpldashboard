@@ -3,3 +3,5 @@ bcrypt
 pandas
 numpy
 Pillow
+openpyxl
+plotly
