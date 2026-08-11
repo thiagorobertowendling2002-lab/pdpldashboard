@@ -47,7 +47,7 @@ def _clean_label(text: str) -> str:
     if text.endswith(":"):
         text = text[:-1]
     text = text.strip()
-    if text.isupper():
+    if text.isupper() and " " in text:
         text = text.capitalize()
     return (text + suffix).strip()
 

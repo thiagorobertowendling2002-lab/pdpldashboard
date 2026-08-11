@@ -215,3 +215,32 @@ def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:
         margin=dict(t=16, b=160, l=200, r=16),
     )
     return fig
+
+
+def parallel_categories(df: pd.DataFrame, dim_cols: list[str], dim_labels: list[str], height: int = 520) -> go.Figure:
+    """Diagrama de categorias paralelas: mostra como até ~5 variáveis (categóricas,
+    de múltipla escolha ou numéricas já divididas em faixas) se relacionam entre si
+    através de faixas que fluem de uma variável pra outra."""
+    dimensions = [dict(values=df[col].astype(str), label=label) for col, label in zip(dim_cols, dim_labels)]
+    codes, _ = pd.factorize(df[dim_cols[0]].astype(str))
+    n_colors = max(codes.max() + 1, 1) if len(codes) else 1
+    ramp = teal_ramp(n_colors)
+    colorscale = [[i / max(n_colors - 1, 1), ramp[i]] for i in range(n_colors)]
+    fig = go.Figure(
+        go.Parcats(
+            dimensions=dimensions,
+            line=dict(color=codes, colorscale=colorscale, shape="hspline"),
+            hoveron="category",
+            hoverinfo="count+probability",
+            labelfont=dict(size=12, family=FONT, color=COLOR_TEXT),
+            tickfont=dict(size=11, family=FONT, color=COLOR_TEXT),
+            arrangement="freeform",
+        )
+    )
+    fig.update_layout(
+        height=height,
+        margin=dict(t=70, b=24, l=120, r=120),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=FONT, color=COLOR_TEXT, size=12),
+    )
+    return fig

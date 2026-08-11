@@ -1,3 +1,5 @@
+import re
+
 import pandas as pd
 import streamlit as st
 
@@ -26,6 +28,24 @@ def fmt_br(value, decimals: int = 1) -> str:
     return text.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def build_variable_options(cat: dict, include_numeric: bool = True) -> list[dict]:
+    """Lista achatada de TODAS as perguntas da pesquisa (categóricas, numéricas e
+    cada opção de perguntas de múltipla escolha), pra usar em seletores livres."""
+    items = []
+    for v in cat["categorical_vars"]:
+        items.append({"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "cat"})
+    if include_numeric:
+        for v in cat["numeric_vars"]:
+            items.append(
+                {"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "num", "unit": v["unit"]}
+            )
+    for g in cat["multiselect_groups"].values():
+        for opt_label, col in g["items"]:
+            items.append({"label": f"[{g['section']}] {g['label']}: {opt_label}", "key": col, "kind": "flag"})
+    items.sort(key=lambda v: v["label"])
+    return items
+
+
 # ---------------------------------------------------------------- Filtros
 with st.container(border=True):
     st.markdown("**🔎 Filtros** — deixe em branco para incluir todos")
@@ -36,6 +56,25 @@ with st.container(border=True):
     sel_estrato = f3.multiselect("Estrato de produção", options["estrato_producao"], default=[])
     sel_sistema = f4.multiselect("Sistema de produção", options["sistema_producao"], default=[])
 
+    st.markdown(
+        "**Filtro avançado** — filtre por *qualquer* pergunta da pesquisa "
+        "(ex: quem tem PRONAF, quem respondeu que quer continuar na atividade)"
+    )
+    filterable_vars = build_variable_options(catalog, include_numeric=False)
+    filterable_labels = [v["label"] for v in filterable_vars]
+    filterable_by_label = {v["label"]: v for v in filterable_vars}
+
+    fa1, fa2 = st.columns([2, 2])
+    adv_var_label = fa1.selectbox("Pergunta", ["(nenhuma)"] + filterable_labels, key="adv_filter_var")
+    adv_values: list[str] = []
+    if adv_var_label != "(nenhuma)":
+        adv_var = filterable_by_label[adv_var_label]
+        if adv_var["kind"] == "flag":
+            value_pool = ["Sim", "Não"]
+        else:
+            value_pool = sorted(raw[adv_var["key"]].dropna().astype(str).unique().tolist())
+        adv_values = fa2.multiselect("Resposta", value_pool, default=[], key="adv_filter_values")
+
 df = apply_filters(
     raw,
     {
@@ -45,6 +84,14 @@ df = apply_filters(
         "sistema_producao": sel_sistema,
     },
 )
+
+if adv_var_label != "(nenhuma)" and adv_values:
+    adv_var = filterable_by_label[adv_var_label]
+    if adv_var["kind"] == "flag":
+        adv_series = raw[adv_var["key"]].fillna("Não")
+    else:
+        adv_series = raw[adv_var["key"]].astype(str)
+    df = df[adv_series.loc[df.index].isin(adv_values)]
 
 if df.empty:
     st.warning("Nenhum produtor corresponde aos filtros selecionados.")
@@ -162,9 +209,31 @@ def render_section(section: str) -> None:
         render_numeric_grid(num_vars, key_prefix)
 
 
+def bin_numeric(series: pd.Series) -> pd.Series:
+    """Divide uma variável numérica em faixas (quartis) pra poder cruzar com
+    variáveis categóricas num diagrama de categorias paralelas."""
+    non_null = series.dropna()
+    result = pd.Series("Não informado", index=series.index, dtype=object)
+    if non_null.empty:
+        return result
+    try:
+        binned = pd.qcut(non_null, q=4, labels=["Baixo", "Médio-baixo", "Médio-alto", "Alto"], duplicates="drop")
+    except ValueError:
+        try:
+            binned = pd.qcut(non_null, q=2, labels=["Baixo", "Alto"], duplicates="drop")
+        except ValueError:
+            binned = non_null.astype(str)
+    result.loc[non_null.index] = binned.astype(str)
+    return result
+
+
 # ---------------------------------------------------------------- Tabs
 section_tabs = [s for s in SECTION_ORDER if s != "Amostra"]
-tab_labels = ["📊 Visão Geral"] + section_tabs + ["🔍 Explorador", "🔗 Correlações"]
+tab_labels = (
+    ["📊 Visão Geral"]
+    + section_tabs
+    + ["🔍 Explorador", "🧩 Comparação e Filtragem entre Parâmetros", "🔗 Correlações"]
+)
 tabs = st.tabs(tab_labels)
 
 with tabs[0]:
@@ -188,14 +257,13 @@ for section, tab in zip(section_tabs, tabs[1 : 1 + len(section_tabs)]):
     with tab:
         render_section(section)
 
-with tabs[-2]:
+with tabs[-3]:
     st.markdown("### Compare quaisquer duas variáveis da pesquisa")
-    explorer_vars = []
-    for v in catalog["categorical_vars"]:
-        explorer_vars.append({"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "cat"})
-    for v in catalog["numeric_vars"]:
-        explorer_vars.append({"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "num", "unit": v["unit"]})
-    explorer_vars.sort(key=lambda v: v["label"])
+    st.caption(
+        "Inclui perguntas de resposta única, números **e cada opção de perguntas de múltipla escolha** "
+        "(ex: \"Se utilizou, quais as principais linhas de crédito?: PRONAF\") — digite pra buscar."
+    )
+    explorer_vars = build_variable_options(catalog, include_numeric=True)
     labels = [v["label"] for v in explorer_vars]
     by_label = {v["label"]: v for v in explorer_vars}
 
@@ -208,16 +276,84 @@ with tabs[-2]:
 
     var_a, var_b = by_label[var_a_label], by_label[var_b_label]
 
-    if var_a["kind"] == "cat" and var_b["kind"] == "cat":
-        fig = charts.grouped_bar_crosstab(df, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}")
+    # perguntas de múltipla escolha (flag) viram categóricas Sim/Não; NaN = "Não" respondeu essa opção
+    df_pair = df.copy()
+    for v in (var_a, var_b):
+        if v["kind"] == "flag":
+            df_pair[v["key"]] = df_pair[v["key"]].fillna("Não")
+
+    def is_categorical(kind: str) -> bool:
+        return kind in ("cat", "flag")
+
+    if is_categorical(var_a["kind"]) and is_categorical(var_b["kind"]):
+        fig = charts.grouped_bar_crosstab(df_pair, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}")
     elif var_a["kind"] == "num" and var_b["kind"] == "num":
-        fig = charts.scatter(df, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}", var_a["label"], var_b["label"])
+        fig = charts.scatter(df_pair, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}", var_a["label"], var_b["label"])
     else:
         num_var, cat_var = (var_a, var_b) if var_a["kind"] == "num" else (var_b, var_a)
         fig = charts.box_by_category(
-            df, cat_var["key"], num_var["key"], f"{num_var['label']} por {cat_var['label']}", num_var.get("unit", "")
+            df_pair, cat_var["key"], num_var["key"], f"{num_var['label']} por {cat_var['label']}", num_var.get("unit", "")
         )
     st.plotly_chart(fig, use_container_width=True, key="explorer_chart")
+
+with tabs[-2]:
+    st.markdown("### Comparação e Filtragem entre Parâmetros")
+    st.caption(
+        "Escolha de 2 a 5 perguntas de **qualquer tipo** — qualitativas (respostas únicas, múltipla escolha) "
+        "ou quantitativas (números, que são divididos em faixas Baixo/Médio/Alto) — e veja como as respostas "
+        "de cada produtor fluem entre elas. Passe o mouse nas faixas do gráfico pra ver quantos produtores "
+        "seguem cada caminho."
+    )
+    multi_vars = build_variable_options(catalog, include_numeric=True)
+    multi_labels = [v["label"] for v in multi_vars]
+    multi_by_label = {v["label"]: v for v in multi_vars}
+
+    default_multi = []
+    for hint in ["Para os próximos 5 anos", "linhas de crédito?: Pronaf", "Tipologia", "Estrato"]:
+        match = next((l for l in multi_labels if hint.lower() in l.lower()), None)
+        if match and match not in default_multi:
+            default_multi.append(match)
+
+    chosen_labels = st.multiselect(
+        "Variáveis (escolha de 2 a 5)",
+        multi_labels,
+        default=default_multi[:4],
+        max_selections=5,
+        key="multi_param_vars",
+    )
+
+    if len(chosen_labels) < 2:
+        st.info("Escolha pelo menos 2 variáveis pra ver a comparação.")
+    else:
+        chosen_vars = [multi_by_label[l] for l in chosen_labels]
+        df_multi = df.copy()
+        dim_cols, dim_labels = [], []
+        for v in chosen_vars:
+            col = v["key"]
+            if v["kind"] == "num":
+                bin_col = f"__bin__{col}"
+                df_multi[bin_col] = bin_numeric(df_multi[col])
+                dim_cols.append(bin_col)
+            else:
+                if v["kind"] == "flag":
+                    df_multi[col] = df_multi[col].fillna("Não")
+                dim_cols.append(col)
+            short_label = re.sub(r"^\[[^\]]+\]\s*", "", v["label"])
+            if len(short_label) > 32:
+                short_label = short_label[:31].rstrip() + "…"
+            dim_labels.append(short_label)
+
+        fig = charts.parallel_categories(df_multi, dim_cols, dim_labels)
+        st.plotly_chart(fig, use_container_width=True, key="multi_parcats")
+
+        st.markdown("#### Tabela dos produtores filtrados")
+        st.caption("Cada linha é um produtor da amostra atual, com as respostas nas variáveis escolhidas.")
+        table_df = df[[v["key"] for v in chosen_vars]].copy()
+        table_df.columns = [v["label"] for v in chosen_vars]
+        for v in chosen_vars:
+            if v["kind"] == "flag":
+                table_df[v["label"]] = table_df[v["label"]].fillna("Não")
+        st.dataframe(table_df, use_container_width=True, height=min(400, 40 + 35 * len(table_df)))
 
 with tabs[-1]:
     st.markdown("### Correlação entre variáveis numéricas")
