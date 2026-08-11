@@ -79,10 +79,48 @@ def inject_css() -> None:
         .brand-header .accent {{
             color: {COLOR_SECONDARY};
         }}
+        .kpi-row {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }}
+        .kpi-card {{
+            background-color: white;
+            border-radius: 10px;
+            padding: 0.9rem 1.1rem;
+            border-top: 3px solid {COLOR_PRIMARY};
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }}
+        .kpi-card .kpi-label {{
+            font-size: 0.78rem;
+            color: {COLOR_TEXT};
+            opacity: 0.65;
+            margin: 0 0 4px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }}
+        .kpi-card .kpi-value {{
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: {COLOR_TEXT};
+            margin: 0;
+            line-height: 1.2;
+            word-break: break-word;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def render_kpi_row(items: list[tuple[str, str]]) -> None:
+    """items: lista de (label, valor) já formatados como texto."""
+    cards = "".join(
+        f'<div class="kpi-card"><p class="kpi-label">{label}</p><p class="kpi-value">{value}</p></div>'
+        for label, value in items
+    )
+    st.markdown(f'<div class="kpi-row">{cards}</div>', unsafe_allow_html=True)
 
 
 def render_header(subtitle: str | None = None) -> None:

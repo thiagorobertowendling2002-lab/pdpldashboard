@@ -50,6 +50,39 @@ dashboard "Produtores PDPL" funcionar em produção, é preciso resolver a priva
 repositório (ver seção abaixo) e então comitar os dados reais dentro do repositório
 privado.
 
+## Dashboard "Produtores PDPL" — arquitetura
+`views/produtores_pdpl.py` não lista colunas na mão — ele usa um motor de
+classificação automática em `data_loader.py` (`build_catalog()`) que lê as 323
+colunas da planilha e separa sozinho em:
+- **`categorical_vars`** — perguntas de resposta única (ex: Sexo, Escolaridade)
+- **`numeric_vars`** — perguntas numéricas avulsas (ex: Idade, Produção média)
+- **`numeric_groups`** — colunas que somam uma composição (ex: "Distribuição da
+  área: Própria/Arrendada/..."), viram um gráfico de barras de composição
+- **`multiselect_groups`** — perguntas "marque todas que se aplicam" (a planilha
+  gera uma coluna Sim/vazio por opção; o loader reagrupa pela pergunta original),
+  viram um ranking de barras
+- **`fun_facts`** — perguntas onde todo mundo respondeu a mesma coisa (ex: "100%
+  usa ordenha mecânica"), viram um card de destaque em vez de gráfico
+
+Cada item carrega a `section` (mapeada pelo prefixo numérico da pergunta, ex.
+"5." → "Produção e Rebanho") usada para organizar as abas do dashboard.
+
+`charts.py` tem as funções de gráfico (donut, ranked_bar, histogram,
+composition_bar, box_by_category, scatter, correlation_heatmap, grouped_bar_crosstab),
+todas usando a paleta da marca (teal/verde) e sem gráfico de pizza com muitas
+cores — regras de cor/forma seguidas conforme a skill de dataviz do Claude Code.
+
+O dashboard tem: filtros globais (município/tipologia/estrato/sistema) que
+recalculam tudo, uma aba por seção do questionário, uma aba "Explorador" pra
+comparar quaisquer duas variáveis (escolhe o tipo de gráfico certo sozinho:
+dispersão, boxplot ou barras agrupadas conforme os tipos), e uma aba de mapa de
+calor de correlação entre as variáveis numéricas.
+
+Pra estender esse dashboard (novas seções, KPIs) não precisa mexer no motor de
+classificação — só adicionar/editar helpers em `views/produtores_pdpl.py`. Se
+um dashboard *novo* (diferente) precisar da mesma abordagem de "classificar
+uma planilha automaticamente", dá pra reaproveitar o padrão de `data_loader.py`.
+
 ## Credenciais / Secrets
 As senhas nunca ficam no código nem no GitHub — vivem em:
 - **Local**: `.streamlit/secrets.toml` (gitignored)
