@@ -29,6 +29,18 @@ render_header("Nome do Dashboard")
 render_footer()
 ```
 
+## Dados dos dashboards
+Planilhas/dados confidenciais (ex: `data/produtores_pdpl.xlsx`) ficam na pasta `data/`,
+que está no `.gitignore` — nunca vai pro GitHub. Cada dashboard tem um "loader" próprio
+(ex: `data_loader.py`) que lê o arquivo local e expõe funções cacheadas (`@st.cache_data`)
+com os dados já limpos para as páginas usarem.
+
+**Consequência importante**: como `data/` não vai pro git, o app publicado no Streamlit
+Cloud não tem acesso a esses arquivos — só o que está versionado é deployado. Antes do
+dashboard "Produtores PDPL" funcionar em produção, é preciso resolver a privacidade do
+repositório (ver seção abaixo) e então comitar os dados reais dentro do repositório
+privado.
+
 ## Credenciais / Secrets
 As senhas nunca ficam no código nem no GitHub — vivem em:
 - **Local**: `.streamlit/secrets.toml` (gitignored)
