@@ -62,6 +62,7 @@ def inject_css() -> None:
             margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 1rem;
             border-bottom: 4px solid {COLOR_PRIMARY};
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
