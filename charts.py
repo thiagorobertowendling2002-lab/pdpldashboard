@@ -7,15 +7,17 @@ FONT = "Poppins, sans-serif"
 GRID_COLOR = "rgba(0,0,0,0.06)"
 
 
-def _base_layout(fig: go.Figure, height: int, title: str | None = None, legend_below: bool = False) -> go.Figure:
+def _base_layout(fig: go.Figure, height: int, legend_below: bool = False) -> go.Figure:
+    """Layout comum a todos os gráficos. O título NÃO é desenhado dentro do Plotly
+    (o SVG corta texto longo sem quebrar linha) — quem chama renderiza o título como
+    markdown normal do Streamlit logo acima do gráfico, que quebra linha livremente."""
     legend = dict(orientation="h", yanchor="top", y=-0.18, xanchor="left", x=0) if legend_below else dict(orientation="h")
     fig.update_layout(
         height=height,
-        margin=dict(t=48 if title else 16, b=48 if legend_below else 8, l=8, r=16),
+        margin=dict(t=16, b=48 if legend_below else 8, l=8, r=16),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=FONT, color=COLOR_TEXT, size=12),
-        title=dict(text=title or "", font=dict(size=14, family=FONT, color=COLOR_TEXT)),
         legend=legend,
     )
     return fig
@@ -42,7 +44,7 @@ def _truncate(label: str, max_len: int = 18) -> str:
     return label if len(label) <= max_len else label[: max_len - 1].rstrip() + "…"
 
 
-def donut(counts: pd.Series, title: str, height: int = 320) -> go.Figure:
+def donut(counts: pd.Series, height: int = 320) -> go.Figure:
     palette = [COLOR_PRIMARY, COLOR_SECONDARY, "#F2A65A", "#7B6FD1", "#D1667B"]
     colors = (palette * (len(counts) // len(palette) + 1))[: len(counts)]
     full_labels = counts.index.astype(str).tolist()
@@ -63,12 +65,12 @@ def donut(counts: pd.Series, title: str, height: int = 320) -> go.Figure:
             showlegend=False,
         )
     )
-    fig = _base_layout(fig, height, title)
-    fig.update_layout(showlegend=False, margin=dict(t=60, b=20, l=80, r=80))
+    fig = _base_layout(fig, height)
+    fig.update_layout(showlegend=False, margin=dict(t=20, b=20, l=80, r=80))
     return fig
 
 
-def ranked_bar(counts: pd.Series, title: str, unit: str = "produtores", height: int | None = None) -> go.Figure:
+def ranked_bar(counts: pd.Series, unit: str = "produtores", height: int | None = None) -> go.Figure:
     counts = counts.sort_values(ascending=True)
     height = height or max(220, 42 * len(counts))
     fig = go.Figure(
@@ -83,10 +85,10 @@ def ranked_bar(counts: pd.Series, title: str, unit: str = "produtores", height: 
         )
     )
     fig.update_layout(xaxis=dict(showgrid=True, gridcolor=GRID_COLOR), yaxis=dict(showgrid=False))
-    return _base_layout(fig, height, title)
+    return _base_layout(fig, height)
 
 
-def histogram(series: pd.Series, title: str, unit: str = "", height: int = 260) -> go.Figure:
+def histogram(series: pd.Series, unit: str = "", height: int = 260) -> go.Figure:
     fig = go.Figure(
         go.Histogram(
             x=series.dropna(),
@@ -99,10 +101,10 @@ def histogram(series: pd.Series, title: str, unit: str = "", height: int = 260) 
         xaxis=dict(title=unit, showgrid=False),
         yaxis=dict(title="Produtores", showgrid=True, gridcolor=GRID_COLOR),
     )
-    return _base_layout(fig, height, title)
+    return _base_layout(fig, height)
 
 
-def box_by_category(df: pd.DataFrame, cat_col: str, num_col: str, title: str, unit: str = "", height: int = 340) -> go.Figure:
+def box_by_category(df: pd.DataFrame, cat_col: str, num_col: str, unit: str = "", height: int = 340) -> go.Figure:
     fig = go.Figure()
     cats = df[cat_col].dropna().unique()
     for i, cat in enumerate(sorted(cats, key=str)):
@@ -120,10 +122,10 @@ def box_by_category(df: pd.DataFrame, cat_col: str, num_col: str, title: str, un
         yaxis=dict(title=unit, showgrid=True, gridcolor=GRID_COLOR),
         xaxis=dict(showgrid=False),
     )
-    return _base_layout(fig, height, title)
+    return _base_layout(fig, height)
 
 
-def scatter(df: pd.DataFrame, x_col: str, y_col: str, title: str, x_label: str = "", y_label: str = "", height: int = 400) -> go.Figure:
+def scatter(df: pd.DataFrame, x_col: str, y_col: str, x_label: str = "", y_label: str = "", height: int = 400) -> go.Figure:
     x = df[x_col]
     y = df[y_col]
     fig = go.Figure(
@@ -148,10 +150,10 @@ def scatter(df: pd.DataFrame, x_col: str, y_col: str, title: str, x_label: str =
         yaxis=dict(title=y_label or y_col, showgrid=True, gridcolor=GRID_COLOR),
         showlegend=False,
     )
-    return _base_layout(fig, height, title)
+    return _base_layout(fig, height)
 
 
-def grouped_bar_crosstab(df: pd.DataFrame, cat_a: str, cat_b: str, title: str, height: int = 400) -> go.Figure:
+def grouped_bar_crosstab(df: pd.DataFrame, cat_a: str, cat_b: str, height: int = 400) -> go.Figure:
     ct = pd.crosstab(df[cat_a], df[cat_b])
     fig = go.Figure()
     colors = teal_ramp(len(ct.columns)) if len(ct.columns) > 2 else [COLOR_PRIMARY, COLOR_SECONDARY]
@@ -162,10 +164,10 @@ def grouped_bar_crosstab(df: pd.DataFrame, cat_a: str, cat_b: str, title: str, h
         xaxis=dict(showgrid=False),
         yaxis=dict(title="Produtores", showgrid=True, gridcolor=GRID_COLOR),
     )
-    return _base_layout(fig, height, title, legend_below=True)
+    return _base_layout(fig, height, legend_below=True)
 
 
-def composition_bar(items: list[tuple[str, float]], title: str, is_percent: bool = True, height: int = 320) -> go.Figure:
+def composition_bar(items: list[tuple[str, float]], is_percent: bool = True, height: int = 320) -> go.Figure:
     """Barra horizontal única mostrando a composição média de um grupo (soma ~100%)."""
     labels = [lbl for lbl, _ in items]
     values = [val for _, val in items]
@@ -189,7 +191,7 @@ def composition_bar(items: list[tuple[str, float]], title: str, is_percent: bool
         xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, title=unit),
         yaxis=dict(showgrid=False, autorange="reversed"),
     )
-    return _base_layout(fig, max(height, 42 * len(items)), title)
+    return _base_layout(fig, max(height, 42 * len(items)))
 
 
 def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:

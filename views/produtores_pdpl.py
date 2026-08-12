@@ -61,6 +61,19 @@ def build_variable_options(cat: dict, include_numeric: bool = True) -> list[dict
     return items
 
 
+def build_question_options(cat: dict) -> list[dict]:
+    """Lista de perguntas "de verdade" (sem explodir múltipla escolha em uma linha
+    por opção) — usada no filtro avançado em cascata: pergunta de múltipla escolha
+    vira uma etapa a mais (escolher a opção) antes do Sim/Não."""
+    items = []
+    for v in cat["categorical_vars"]:
+        items.append({"label": v["label"], "section": v["section"], "kind": "cat", "key": v["key"]})
+    for g in cat["multiselect_groups"].values():
+        items.append({"label": g["label"], "section": g["section"], "kind": "group", "items": g["items"]})
+    items.sort(key=lambda v: v["label"])
+    return items
+
+
 # ---------------------------------------------------------------- Filtros
 with st.container(border=True):
     st.markdown("**🔎 Filtros** — deixe em branco para incluir todos")
@@ -72,31 +85,62 @@ with st.container(border=True):
     sel_sistema = f4.multiselect("Sistema de produção", options["sistema_producao"], default=[])
 
     st.markdown(
-        "**Filtro avançado** — escolha a seção do questionário e depois a pergunta "
-        "que quiser filtrar (ex: Crédito Rural → PRONAF → Sim)"
+        "**Filtro avançado** — escolha a seção, a pergunta e (se for de múltipla escolha) "
+        "a opção específica (ex: Motivação e Percepção → Excluindo o preço do leite... → "
+        "Falta de mão de obra → Sim)"
     )
-    filterable_vars = build_variable_options(catalog, include_numeric=False)
-    sections_with_vars = [s for s in SECTION_ORDER if any(v["section"] == s for v in filterable_vars)]
+    question_options = build_question_options(catalog)
+    sections_with_vars = [s for s in SECTION_ORDER if any(q["section"] == s for q in question_options)]
 
-    fa1, fa2, fa3 = st.columns([1.1, 2.2, 1.7])
+    fa1, fa2, fa3, fa4 = st.columns([1, 1.8, 1.6, 1.1])
     adv_section = fa1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key="adv_filter_section")
 
     selected_adv_var: dict | None = None
+    adv_full_label = ""
     adv_values: list[str] = []
     if adv_section != "(nenhuma)":
-        section_vars = [v for v in filterable_vars if v["section"] == adv_section]
-        section_labels = [re.sub(r"^\[[^\]]+\]\s*", "", v["label"]) for v in section_vars]
-        section_by_label = dict(zip(section_labels, section_vars))
-        adv_q_label = fa2.selectbox("Pergunta", ["(nenhuma)"] + section_labels, key=f"adv_filter_q_{adv_section}")
+        section_qs = [q for q in question_options if q["section"] == adv_section]
+        q_labels = [q["label"] for q in section_qs]
+        q_by_label = dict(zip(q_labels, section_qs))
+        adv_q_label = fa2.selectbox("Pergunta", ["(nenhuma)"] + q_labels, key=f"adv_filter_q_{adv_section}")
+
         if adv_q_label != "(nenhuma)":
-            selected_adv_var = section_by_label[adv_q_label]
-            if selected_adv_var["kind"] == "flag":
-                value_pool = ["Sim", "Não"]
+            question = q_by_label[adv_q_label]
+
+            if question["kind"] == "group":
+                opt_labels = [lbl for lbl, _ in question["items"]]
+                opt_by_label = dict(question["items"])
+                adv_opt_label = fa3.selectbox(
+                    "Opção", ["(nenhuma)"] + opt_labels, key=f"adv_filter_opt_{adv_section}_{adv_q_label}"
+                )
+                if adv_opt_label != "(nenhuma)":
+                    selected_adv_var = {"key": opt_by_label[adv_opt_label], "kind": "flag"}
+                    adv_full_label = f"{adv_q_label}: {adv_opt_label}"
+                    adv_values = fa4.multiselect(
+                        "Resposta",
+                        ["Sim", "Não"],
+                        default=[],
+                        key=f"adv_filter_v_{adv_section}_{adv_q_label}_{adv_opt_label}",
+                    )
             else:
-                value_pool = sorted(raw[selected_adv_var["key"]].dropna().astype(str).unique().tolist())
-            adv_values = fa3.multiselect(
-                "Resposta", value_pool, default=[], key=f"adv_filter_v_{adv_section}_{adv_q_label}"
-            )
+                selected_adv_var = {"key": question["key"], "kind": "cat"}
+                adv_full_label = adv_q_label
+                value_pool = sorted(raw[question["key"]].dropna().astype(str).unique().tolist())
+                adv_values = fa3.multiselect(
+                    "Resposta", value_pool, default=[], key=f"adv_filter_v_{adv_section}_{adv_q_label}"
+                )
+
+            if selected_adv_var is not None and adv_values:
+                if selected_adv_var["kind"] == "flag":
+                    adv_preview_series = raw[selected_adv_var["key"]].fillna("Não")
+                else:
+                    adv_preview_series = raw[selected_adv_var["key"]].astype(str)
+                n_match = int(adv_preview_series.isin(adv_values).sum())
+                resposta_str = " ou ".join(adv_values)
+                st.success(
+                    f"**Resultado:** {n_match} de {len(raw)} produtores responderam "
+                    f"**{adv_full_label} = {resposta_str}**. O dashboard abaixo já está filtrado por isso."
+                )
 
 df = apply_filters(
     raw,
@@ -153,7 +197,8 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
             if counts.empty:
                 continue
             with col:
-                fig = charts.donut(counts, var["label"]) if len(counts) <= 5 else charts.ranked_bar(counts, var["label"])
+                st.markdown(f"**{var['label']}**")
+                fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}")
 
 
@@ -163,7 +208,8 @@ def render_numeric_groups(groups: list[dict], key_prefix: str) -> None:
         items = [(lbl, v) for lbl, v in items if pd.notna(v)]
         if not items:
             continue
-        fig = charts.composition_bar(items, g["label"], is_percent=g["is_percent"])
+        st.markdown(f"**{g['label']}**")
+        fig = charts.composition_bar(items, is_percent=g["is_percent"])
         st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_grp_{i}")
 
 
@@ -173,7 +219,8 @@ def render_multiselect_groups(groups: list[dict], key_prefix: str) -> None:
         counts = counts[counts > 0]
         if counts.empty:
             continue
-        fig = charts.ranked_bar(counts, g["label"])
+        st.markdown(f"**{g['label']}**")
+        fig = charts.ranked_bar(counts)
         st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_ms_{i}")
 
 
@@ -186,7 +233,8 @@ def render_numeric_grid(num_vars: list[dict], key_prefix: str) -> None:
             if series.empty:
                 continue
             with col:
-                fig = charts.histogram(series, var["label"], var["unit"])
+                st.markdown(f"**{var['label']}**")
+                fig = charts.histogram(series, var["unit"])
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_num_{i}_{j}")
 
 
@@ -308,14 +356,16 @@ with tabs[-3]:
         return kind in ("cat", "flag")
 
     if is_categorical(var_a["kind"]) and is_categorical(var_b["kind"]):
-        fig = charts.grouped_bar_crosstab(df_pair, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}")
+        chart_title = f"{var_a['label']} × {var_b['label']}"
+        fig = charts.grouped_bar_crosstab(df_pair, var_a["key"], var_b["key"])
     elif var_a["kind"] == "num" and var_b["kind"] == "num":
-        fig = charts.scatter(df_pair, var_a["key"], var_b["key"], f"{var_a['label']} × {var_b['label']}", var_a["label"], var_b["label"])
+        chart_title = f"{var_a['label']} × {var_b['label']}"
+        fig = charts.scatter(df_pair, var_a["key"], var_b["key"], var_a["label"], var_b["label"])
     else:
         num_var, cat_var = (var_a, var_b) if var_a["kind"] == "num" else (var_b, var_a)
-        fig = charts.box_by_category(
-            df_pair, cat_var["key"], num_var["key"], f"{num_var['label']} por {cat_var['label']}", num_var.get("unit", "")
-        )
+        chart_title = f"{num_var['label']} por {cat_var['label']}"
+        fig = charts.box_by_category(df_pair, cat_var["key"], num_var["key"], num_var.get("unit", ""))
+    st.markdown(f"**{chart_title}**")
     st.plotly_chart(fig, use_container_width=True, key="explorer_chart")
 
 with tabs[-2]:

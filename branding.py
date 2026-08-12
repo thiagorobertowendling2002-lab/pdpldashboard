@@ -42,9 +42,17 @@ def inject_css() -> None:
             background-color: {COLOR_BG};
         }}
         .block-container {{
-            max-width: 96vw !important;
-            padding-left: 2rem !important;
-            padding-right: 2rem !important;
+            max-width: 99vw !important;
+            padding-left: 1.2rem !important;
+            padding-right: 1.2rem !important;
+        }}
+        [data-baseweb="select"] div {{
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+        }}
+        [data-baseweb="select"] {{
+            min-height: 38px;
         }}
         h1, h2, h3, h4 {{
             color: {COLOR_TEXT} !important;
