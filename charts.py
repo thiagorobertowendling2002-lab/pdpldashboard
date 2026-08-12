@@ -44,12 +44,30 @@ def _truncate(label: str, max_len: int = 18) -> str:
     return label if len(label) <= max_len else label[: max_len - 1].rstrip() + "…"
 
 
+def _wrap(label: str, width: int = 22) -> str:
+    """Quebra o texto em várias linhas (sem cortar palavras) usando <br>, pra caber
+    a frase inteira em vez de truncar com "..."."""
+    words = label.split()
+    lines: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) > width and current:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return "<br>".join(lines)
+
+
 def donut(counts: pd.Series, height: int = 320) -> go.Figure:
     palette = [COLOR_PRIMARY, COLOR_SECONDARY, "#F2A65A", "#7B6FD1", "#D1667B"]
     colors = (palette * (len(counts) // len(palette) + 1))[: len(counts)]
     full_labels = counts.index.astype(str).tolist()
     total = counts.values.sum()
-    text = [f"{_truncate(lbl)}<br>{v / total:.1%}" for lbl, v in zip(full_labels, counts.values)]
+    text = [f"{_wrap(lbl)}<br>{v / total:.1%}" for lbl, v in zip(full_labels, counts.values)]
     fig = go.Figure(
         go.Pie(
             labels=full_labels,
@@ -59,14 +77,14 @@ def donut(counts: pd.Series, height: int = 320) -> go.Figure:
             text=text,
             textinfo="text",
             textposition="outside",
-            textfont=dict(size=11),
+            textfont=dict(size=10),
             customdata=full_labels,
             hovertemplate="%{customdata}<br>%{value} produtores (%{percent})<extra></extra>",
             showlegend=False,
         )
     )
-    fig = _base_layout(fig, height)
-    fig.update_layout(showlegend=False, margin=dict(t=20, b=20, l=80, r=80))
+    fig = _base_layout(fig, height + 40)
+    fig.update_layout(showlegend=False, margin=dict(t=20, b=20, l=110, r=110))
     return fig
 
 
@@ -195,7 +213,7 @@ def composition_bar(items: list[tuple[str, float]], is_percent: bool = True, hei
 
 
 def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:
-    short_labels = [_truncate(str(c)) for c in corr.columns]
+    short_labels = [_truncate(str(c), max_len=34) for c in corr.columns]
     fig = go.Figure(
         go.Heatmap(
             z=corr.values,
@@ -212,9 +230,9 @@ def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:
     )
     fig = _base_layout(fig, height)
     fig.update_layout(
-        xaxis=dict(tickangle=-90, automargin=True),
-        yaxis=dict(autorange="reversed", automargin=True),
-        margin=dict(t=16, b=160, l=200, r=16),
+        xaxis=dict(tickangle=-45, automargin=True, tickfont=dict(size=10)),
+        yaxis=dict(autorange="reversed", automargin=True, tickfont=dict(size=10)),
+        margin=dict(t=16, b=260, l=320, r=16),
     )
     return fig
 

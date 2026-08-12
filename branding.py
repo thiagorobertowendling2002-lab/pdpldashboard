@@ -50,9 +50,17 @@ def inject_css() -> None:
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: unset !important;
+            font-size: 0.82rem !important;
         }}
         [data-baseweb="select"] {{
             min-height: 38px;
+        }}
+        ul[data-testid="stSelectboxVirtualDropdown"] li div {{
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+            font-size: 0.8rem !important;
+            line-height: 1.15 !important;
         }}
         h1, h2, h3, h4 {{
             color: {COLOR_TEXT} !important;

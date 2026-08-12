@@ -92,8 +92,11 @@ with st.container(border=True):
     question_options = build_question_options(catalog)
     sections_with_vars = [s for s in SECTION_ORDER if any(q["section"] == s for q in question_options)]
 
-    fa1, fa2, fa3, fa4 = st.columns([1, 1.8, 1.6, 1.1])
-    adv_section = fa1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key="adv_filter_section")
+    # Seção e Pergunta ficam numa linha só pra ela (a pergunta precisa de bastante
+    # largura pra caber inteira sem cortar — o dropdown do Streamlit não quebra
+    # linha dentro da lista aberta).
+    r1c1, r1c2 = st.columns([1, 4])
+    adv_section = r1c1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key="adv_filter_section")
 
     selected_adv_var: dict | None = None
     adv_full_label = ""
@@ -102,21 +105,22 @@ with st.container(border=True):
         section_qs = [q for q in question_options if q["section"] == adv_section]
         q_labels = [q["label"] for q in section_qs]
         q_by_label = dict(zip(q_labels, section_qs))
-        adv_q_label = fa2.selectbox("Pergunta", ["(nenhuma)"] + q_labels, key=f"adv_filter_q_{adv_section}")
+        adv_q_label = r1c2.selectbox("Pergunta", ["(nenhuma)"] + q_labels, key=f"adv_filter_q_{adv_section}")
 
         if adv_q_label != "(nenhuma)":
             question = q_by_label[adv_q_label]
 
             if question["kind"] == "group":
+                r2c1, r2c2 = st.columns([3, 2])
                 opt_labels = [lbl for lbl, _ in question["items"]]
                 opt_by_label = dict(question["items"])
-                adv_opt_label = fa3.selectbox(
+                adv_opt_label = r2c1.selectbox(
                     "Opção", ["(nenhuma)"] + opt_labels, key=f"adv_filter_opt_{adv_section}_{adv_q_label}"
                 )
                 if adv_opt_label != "(nenhuma)":
                     selected_adv_var = {"key": opt_by_label[adv_opt_label], "kind": "flag"}
                     adv_full_label = f"{adv_q_label}: {adv_opt_label}"
-                    adv_values = fa4.multiselect(
+                    adv_values = r2c2.multiselect(
                         "Resposta",
                         ["Sim", "Não"],
                         default=[],
@@ -126,7 +130,7 @@ with st.container(border=True):
                 selected_adv_var = {"key": question["key"], "kind": "cat"}
                 adv_full_label = adv_q_label
                 value_pool = sorted(raw[question["key"]].dropna().astype(str).unique().tolist())
-                adv_values = fa3.multiselect(
+                adv_values = st.multiselect(
                     "Resposta", value_pool, default=[], key=f"adv_filter_v_{adv_section}_{adv_q_label}"
                 )
 
