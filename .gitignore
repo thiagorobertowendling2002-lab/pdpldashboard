@@ -4,5 +4,6 @@ __pycache__/
 .venv/
 venv/
 
-# Dados confidenciais dos produtores - nunca comitar (repo pode estar publico)
-data/
+# Dados confidenciais: so vao pro git porque o repositorio e privado.
+# Se o repo voltar a ficar publico por qualquer motivo, re-adicionar "data/" aqui
+# ANTES de fazer qualquer commit.
