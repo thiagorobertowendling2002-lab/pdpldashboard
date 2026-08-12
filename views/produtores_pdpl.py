@@ -33,15 +33,30 @@ def build_variable_options(cat: dict, include_numeric: bool = True) -> list[dict
     cada opção de perguntas de múltipla escolha), pra usar em seletores livres."""
     items = []
     for v in cat["categorical_vars"]:
-        items.append({"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "cat"})
+        items.append(
+            {"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "cat", "section": v["section"]}
+        )
     if include_numeric:
         for v in cat["numeric_vars"]:
             items.append(
-                {"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "num", "unit": v["unit"]}
+                {
+                    "label": f"[{v['section']}] {v['label']}",
+                    "key": v["key"],
+                    "kind": "num",
+                    "unit": v["unit"],
+                    "section": v["section"],
+                }
             )
     for g in cat["multiselect_groups"].values():
         for opt_label, col in g["items"]:
-            items.append({"label": f"[{g['section']}] {g['label']}: {opt_label}", "key": col, "kind": "flag"})
+            items.append(
+                {
+                    "label": f"[{g['section']}] {g['label']}: {opt_label}",
+                    "key": col,
+                    "kind": "flag",
+                    "section": g["section"],
+                }
+            )
     items.sort(key=lambda v: v["label"])
     return items
 
@@ -57,23 +72,31 @@ with st.container(border=True):
     sel_sistema = f4.multiselect("Sistema de produção", options["sistema_producao"], default=[])
 
     st.markdown(
-        "**Filtro avançado** — filtre por *qualquer* pergunta da pesquisa "
-        "(ex: quem tem PRONAF, quem respondeu que quer continuar na atividade)"
+        "**Filtro avançado** — escolha a seção do questionário e depois a pergunta "
+        "que quiser filtrar (ex: Crédito Rural → PRONAF → Sim)"
     )
     filterable_vars = build_variable_options(catalog, include_numeric=False)
-    filterable_labels = [v["label"] for v in filterable_vars]
-    filterable_by_label = {v["label"]: v for v in filterable_vars}
+    sections_with_vars = [s for s in SECTION_ORDER if any(v["section"] == s for v in filterable_vars)]
 
-    fa1, fa2 = st.columns([2, 2])
-    adv_var_label = fa1.selectbox("Pergunta", ["(nenhuma)"] + filterable_labels, key="adv_filter_var")
+    fa1, fa2, fa3 = st.columns([1.1, 2.2, 1.7])
+    adv_section = fa1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key="adv_filter_section")
+
+    selected_adv_var: dict | None = None
     adv_values: list[str] = []
-    if adv_var_label != "(nenhuma)":
-        adv_var = filterable_by_label[adv_var_label]
-        if adv_var["kind"] == "flag":
-            value_pool = ["Sim", "Não"]
-        else:
-            value_pool = sorted(raw[adv_var["key"]].dropna().astype(str).unique().tolist())
-        adv_values = fa2.multiselect("Resposta", value_pool, default=[], key="adv_filter_values")
+    if adv_section != "(nenhuma)":
+        section_vars = [v for v in filterable_vars if v["section"] == adv_section]
+        section_labels = [re.sub(r"^\[[^\]]+\]\s*", "", v["label"]) for v in section_vars]
+        section_by_label = dict(zip(section_labels, section_vars))
+        adv_q_label = fa2.selectbox("Pergunta", ["(nenhuma)"] + section_labels, key=f"adv_filter_q_{adv_section}")
+        if adv_q_label != "(nenhuma)":
+            selected_adv_var = section_by_label[adv_q_label]
+            if selected_adv_var["kind"] == "flag":
+                value_pool = ["Sim", "Não"]
+            else:
+                value_pool = sorted(raw[selected_adv_var["key"]].dropna().astype(str).unique().tolist())
+            adv_values = fa3.multiselect(
+                "Resposta", value_pool, default=[], key=f"adv_filter_v_{adv_section}_{adv_q_label}"
+            )
 
 df = apply_filters(
     raw,
@@ -85,12 +108,11 @@ df = apply_filters(
     },
 )
 
-if adv_var_label != "(nenhuma)" and adv_values:
-    adv_var = filterable_by_label[adv_var_label]
-    if adv_var["kind"] == "flag":
-        adv_series = raw[adv_var["key"]].fillna("Não")
+if selected_adv_var is not None and adv_values:
+    if selected_adv_var["kind"] == "flag":
+        adv_series = raw[selected_adv_var["key"]].fillna("Não")
     else:
-        adv_series = raw[adv_var["key"]].astype(str)
+        adv_series = raw[selected_adv_var["key"]].astype(str)
     df = df[adv_series.loc[df.index].isin(adv_values)]
 
 if df.empty:

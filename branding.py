@@ -41,6 +41,11 @@ def inject_css() -> None:
         .stApp {{
             background-color: {COLOR_BG};
         }}
+        .block-container {{
+            max-width: 96vw !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
+        }}
         h1, h2, h3, h4 {{
             color: {COLOR_TEXT} !important;
         }}
