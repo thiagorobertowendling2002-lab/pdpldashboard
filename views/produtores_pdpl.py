@@ -74,6 +74,52 @@ def build_question_options(cat: dict) -> list[dict]:
     return items
 
 
+def render_advanced_filter(
+    question_options: list[dict], sections_with_vars: list[str], instance_key: str
+) -> tuple[dict, list[str], str] | None:
+    """Um bloco Seção -> Pergunta -> [Opção] -> Resposta. Retorna (variável, valores
+    escolhidos, rótulo completo) se o usuário completou esse filtro, senão None."""
+    r1c1, r1c2 = st.columns([1, 4])
+    section = r1c1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key=f"adv_section_{instance_key}")
+    if section == "(nenhuma)":
+        return None
+
+    section_qs = [q for q in question_options if q["section"] == section]
+    q_labels = [q["label"] for q in section_qs]
+    q_by_label = dict(zip(q_labels, section_qs))
+    q_label = r1c2.selectbox("Pergunta", ["(nenhuma)"] + q_labels, key=f"adv_q_{instance_key}_{section}")
+    if q_label == "(nenhuma)":
+        return None
+
+    question = q_by_label[q_label]
+    if question["kind"] == "group":
+        r2c1, r2c2 = st.columns([3, 2])
+        opt_labels = [lbl for lbl, _ in question["items"]]
+        opt_by_label = dict(question["items"])
+        opt_label = r2c1.selectbox(
+            "Opção", ["(nenhuma)"] + opt_labels, key=f"adv_opt_{instance_key}_{section}_{q_label}"
+        )
+        if opt_label == "(nenhuma)":
+            return None
+        var = {"key": opt_by_label[opt_label], "kind": "flag"}
+        full_label = f"{q_label}: {opt_label}"
+        values = r2c2.multiselect(
+            "Resposta", ["Sim", "Não"], default=[], key=f"adv_v_{instance_key}_{section}_{q_label}_{opt_label}"
+        )
+    else:
+        var = {"key": question["key"], "kind": "cat"}
+        full_label = q_label
+        value_pool = sorted(raw[question["key"]].dropna().astype(str).unique().tolist())
+        values = st.multiselect("Resposta", value_pool, default=[], key=f"adv_v_{instance_key}_{section}_{q_label}")
+
+    return (var, values, full_label) if values else None
+
+
+def filter_mask(var: dict, values: list[str]) -> pd.Series:
+    series = raw[var["key"]].fillna("Não") if var["kind"] == "flag" else raw[var["key"]].astype(str)
+    return series.isin(values)
+
+
 # ---------------------------------------------------------------- Filtros
 with st.container(border=True):
     st.markdown("**🔎 Filtros** — deixe em branco para incluir todos")
@@ -85,66 +131,34 @@ with st.container(border=True):
     sel_sistema = f4.multiselect("Sistema de produção", options["sistema_producao"], default=[])
 
     st.markdown(
-        "**Filtro avançado** — escolha a seção, a pergunta e (se for de múltipla escolha) "
-        "a opção específica (ex: Motivação e Percepção → Excluindo o preço do leite... → "
-        "Falta de mão de obra → Sim)"
+        "**Filtros avançados** — combine até 4 perguntas quaisquer da pesquisa "
+        "(ex: Filtro 1 = Amostra → Município → Coimbra, Filtro 2 = Crédito Rural → "
+        "Se utilizou, quais as principais linhas de crédito?: PRONAF → Sim)"
     )
     question_options = build_question_options(catalog)
     sections_with_vars = [s for s in SECTION_ORDER if any(q["section"] == s for q in question_options)]
 
-    # Seção e Pergunta ficam numa linha só pra ela (a pergunta precisa de bastante
-    # largura pra caber inteira sem cortar — o dropdown do Streamlit não quebra
-    # linha dentro da lista aberta).
-    r1c1, r1c2 = st.columns([1, 4])
-    adv_section = r1c1.selectbox("Seção", ["(nenhuma)"] + sections_with_vars, key="adv_filter_section")
+    active_filters: list[tuple[dict, list[str], str]] = []
+    for i in range(4):
+        if i > 0:
+            st.markdown("---")
+        st.caption(f"Filtro avançado {i + 1}")
+        result = render_advanced_filter(question_options, sections_with_vars, f"f{i}")
+        if result:
+            active_filters.append(result)
 
-    selected_adv_var: dict | None = None
-    adv_full_label = ""
-    adv_values: list[str] = []
-    if adv_section != "(nenhuma)":
-        section_qs = [q for q in question_options if q["section"] == adv_section]
-        q_labels = [q["label"] for q in section_qs]
-        q_by_label = dict(zip(q_labels, section_qs))
-        adv_q_label = r1c2.selectbox("Pergunta", ["(nenhuma)"] + q_labels, key=f"adv_filter_q_{adv_section}")
-
-        if adv_q_label != "(nenhuma)":
-            question = q_by_label[adv_q_label]
-
-            if question["kind"] == "group":
-                r2c1, r2c2 = st.columns([3, 2])
-                opt_labels = [lbl for lbl, _ in question["items"]]
-                opt_by_label = dict(question["items"])
-                adv_opt_label = r2c1.selectbox(
-                    "Opção", ["(nenhuma)"] + opt_labels, key=f"adv_filter_opt_{adv_section}_{adv_q_label}"
-                )
-                if adv_opt_label != "(nenhuma)":
-                    selected_adv_var = {"key": opt_by_label[adv_opt_label], "kind": "flag"}
-                    adv_full_label = f"{adv_q_label}: {adv_opt_label}"
-                    adv_values = r2c2.multiselect(
-                        "Resposta",
-                        ["Sim", "Não"],
-                        default=[],
-                        key=f"adv_filter_v_{adv_section}_{adv_q_label}_{adv_opt_label}",
-                    )
-            else:
-                selected_adv_var = {"key": question["key"], "kind": "cat"}
-                adv_full_label = adv_q_label
-                value_pool = sorted(raw[question["key"]].dropna().astype(str).unique().tolist())
-                adv_values = st.multiselect(
-                    "Resposta", value_pool, default=[], key=f"adv_filter_v_{adv_section}_{adv_q_label}"
-                )
-
-            if selected_adv_var is not None and adv_values:
-                if selected_adv_var["kind"] == "flag":
-                    adv_preview_series = raw[selected_adv_var["key"]].fillna("Não")
-                else:
-                    adv_preview_series = raw[selected_adv_var["key"]].astype(str)
-                n_match = int(adv_preview_series.isin(adv_values).sum())
-                resposta_str = " ou ".join(adv_values)
-                st.success(
-                    f"**Resultado:** {n_match} de {len(raw)} produtores responderam "
-                    f"**{adv_full_label} = {resposta_str}**. O dashboard abaixo já está filtrado por isso."
-                )
+    if active_filters:
+        combined_mask = pd.Series(True, index=raw.index)
+        parts = []
+        for var, values, full_label in active_filters:
+            combined_mask &= filter_mask(var, values)
+            parts.append(f"**{full_label} = {' ou '.join(values)}**")
+        n_match = int(combined_mask.sum())
+        st.success(
+            f"**Resultado combinado:** {n_match} de {len(raw)} produtores atendem: "
+            + " **E** ".join(parts)
+            + ". O dashboard abaixo já está filtrado por isso."
+        )
 
 df = apply_filters(
     raw,
@@ -156,12 +170,8 @@ df = apply_filters(
     },
 )
 
-if selected_adv_var is not None and adv_values:
-    if selected_adv_var["kind"] == "flag":
-        adv_series = raw[selected_adv_var["key"]].fillna("Não")
-    else:
-        adv_series = raw[selected_adv_var["key"]].astype(str)
-    df = df[adv_series.loc[df.index].isin(adv_values)]
+for var, values, _ in active_filters:
+    df = df[filter_mask(var, values).loc[df.index]]
 
 if df.empty:
     st.warning("Nenhum produtor corresponde aos filtros selecionados.")
