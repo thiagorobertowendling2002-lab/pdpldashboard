@@ -7,6 +7,12 @@ FONT = "Poppins, sans-serif"
 GRID_COLOR = "rgba(0,0,0,0.06)"
 
 
+def _with_alpha(hex_color: str, alpha: float) -> str:
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
 def _base_layout(fig: go.Figure, height: int, legend_below: bool = False) -> go.Figure:
     """Layout comum a todos os gráficos. O título NÃO é desenhado dentro do Plotly
     (o SVG corta texto longo sem quebrar linha) — quem chama renderiza o título como
@@ -372,12 +378,20 @@ def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int
         signed = pd.notna(row["r"])
         v = row["r"] if signed else row["value"]
         plot_values.append(v)
+        # Barra esmaecida quando não-significativa (p >= 0,05) — sem isso, uma
+        # associação forte só por acaso (comum ao testar 200+ pares numa
+        # amostra pequena) fica visualmente idêntica a um achado real. p-valor
+        # ausente (raro, casos inválidos) não esmaece: sem evidência de que
+        # NÃO é significativo, não presumimos isso visualmente.
+        p = row["p_value"]
+        alpha = 1.0 if pd.isna(p) or p < 0.05 else 0.35
         if signed:
-            colors.append(COLOR_PRIMARY if v >= 0 else "#B2182B")
+            base = COLOR_PRIMARY if v >= 0 else "#B2182B"
             text.append(f"{v:+.2f}")
         else:
-            colors.append(NEUTRAL_ASSOC_COLOR)
+            base = NEUTRAL_ASSOC_COLOR
             text.append(f"{v:.2f}")
+        colors.append(_with_alpha(base, alpha))
 
     customdata = np.stack([ranking["method"].values, ranking["p_value"].values, ranking["n"].values], axis=-1)
     fig = go.Figure(
@@ -403,23 +417,34 @@ def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int
     return _base_layout(fig, height)
 
 
-def full_association_heatmap(matrix_wide: pd.DataFrame, height: int = 900) -> go.Figure:
+def full_association_heatmap(matrix_wide: pd.DataFrame, p_wide: pd.DataFrame | None = None, height: int = 900) -> go.Figure:
     """Heatmap completo de todos os fatores (magnitude 0-1, sem sinal — mistura
     métodos diferentes, então mostrar sinal seria enganoso). Rolagem/zoom vêm
-    de graça do Plotly; nomes truncados com o completo disponível no hover."""
+    de graça do Plotly; nomes truncados com o completo disponível no hover.
+    `p_wide` (opcional) leva o p-valor pro hover — testar 200+ fatores par a
+    par numa amostra pequena produz muita célula "forte" só por acaso, então
+    o p-valor precisa estar a um hover de distância, não só na aba de fator
+    único."""
     labels = list(matrix_wide.columns)
     short_labels = [_truncate(str(c), max_len=22) for c in labels]
+    n = len(labels)
+    customdata = np.empty((n, n, 2), dtype=object)
+    for i, a in enumerate(labels):
+        for j, b in enumerate(labels):
+            customdata[j, i, 0] = f"{a} × {b}"
+            p = p_wide.iat[j, i] if p_wide is not None else np.nan
+            customdata[j, i, 1] = "não significativo (p ≥ 0,05)" if pd.notna(p) and p >= 0.05 else (f"p = {p:.3f}" if pd.notna(p) else "—")
     fig = go.Figure(
         go.Heatmap(
             z=matrix_wide.values,
             x=short_labels,
             y=short_labels,
-            customdata=[[f"{a} × {b}" for a in labels] for b in labels],
+            customdata=customdata,
             colorscale=[[0, "#F5F8F9"], [1, COLOR_PRIMARY]],
             zmin=0,
             zmax=1,
             colorbar=dict(title="força"),
-            hovertemplate="%{customdata}<br>%{z:.2f}<extra></extra>",
+            hovertemplate="%{customdata[0]}<br>%{z:.2f} · %{customdata[1]}<extra></extra>",
         )
     )
     fig = _base_layout(fig, height)

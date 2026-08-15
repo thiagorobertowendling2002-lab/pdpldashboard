@@ -738,10 +738,15 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
         table["Sinal"] = table["sign"].map({1: "Positivo", -1: "Negativo", 0: "—"})
         table["Força"] = table["value"].apply(strength_label)
         table["p-valor"] = table["p_value"]
+        # Coluna própria pra significância, além do esmaecimento no gráfico
+        # acima — testar 200+ fatores numa amostra pequena gera muita
+        # associação "forte" só por acaso, então isso precisa estar visível
+        # sem exigir que o usuário leia e interprete o p-valor cru sozinho.
+        table["Significativo"] = table["p_value"].apply(lambda p: "Sim" if pd.notna(p) and p < 0.05 else ("Não" if pd.notna(p) else "—"))
         table["N"] = table["n"]
         table["Método"] = table["method"]
         st.dataframe(
-            table[["Fator", "Coeficiente", "Sinal", "Força", "Método", "p-valor", "N"]],
+            table[["Fator", "Coeficiente", "Sinal", "Força", "Método", "p-valor", "Significativo", "N"]],
             use_container_width=True,
             height=min(480, 40 + 35 * len(table)),
             hide_index=True,
@@ -753,13 +758,15 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
     st.caption(
         "Escala de força (valor absoluto): 0,00–0,19 muito fraca · 0,20–0,39 fraca · 0,40–0,59 moderada · "
         "0,60–0,79 forte · 0,80–1,00 muito forte. O sinal (+/-) só existe pra Pearson, ponto-bisserial e Phi — "
-        "η e Cramér's V medem só magnitude, sem direção."
+        "η e Cramér's V medem só magnitude, sem direção. Barras e linhas com p ≥ 0,05 aparecem esmaecidas: "
+        "força sem significância não é evidência confiável, mesmo quando o coeficiente é alto."
     )
-    if n_sample < 30:
+    if n_sample <= 50:
         st.caption(
-            f":material/warning: Calculado sobre **{n_sample}** produtores — amostra pequena: força e "
-            "significância (p-valor) devem ser lidas em conjunto, não isoladamente. Um coeficiente moderado "
-            "com p-valor alto (ex: p > 0,05) não é uma evidência estatística confiável."
+            f":material/warning: Calculado sobre **{n_sample}** produtores — amostra pequena: com 200+ fatores "
+            "testados par a par, é esperado que alguns pareçam associações fortes só por acaso. Força e "
+            "significância (p-valor) devem ser lidas em conjunto, nunca isoladamente. Um coeficiente moderado "
+            "ou alto com p-valor acima de 0,05 não é uma evidência estatística confiável."
         )
 
 
@@ -774,6 +781,7 @@ def render_association_matrix_view(matrix: pd.DataFrame, factors: list[dict], la
     n = len(keys)
     idx = {k: i for i, k in enumerate(keys)}
     values = np.eye(n)
+    p_values = np.full((n, n), np.nan)
     valid = matrix.dropna(subset=["value"])
     ia = valid["key_a"].map(idx)
     ib = valid["key_b"].map(idx)
@@ -781,15 +789,19 @@ def render_association_matrix_view(matrix: pd.DataFrame, factors: list[dict], la
     ia = ia[keep].to_numpy(dtype=int)
     ib = ib[keep].to_numpy(dtype=int)
     vals = valid.loc[keep, "value"].to_numpy()
+    pvals = valid.loc[keep, "p_value"].to_numpy()
     values[ia, ib] = vals
     values[ib, ia] = vals
+    p_values[ia, ib] = pvals
+    p_values[ib, ia] = pvals
     labels = [label_of.get(k, k) for k in keys]
     wide = pd.DataFrame(values, index=labels, columns=labels)
+    p_wide = pd.DataFrame(p_values, index=labels, columns=labels)
 
     with st.container(border=True):
         height = max(700, 20 * n)
         st.plotly_chart(
-            charts.full_association_heatmap(wide, height=height), use_container_width=True, key="assoc_full_heatmap"
+            charts.full_association_heatmap(wide, p_wide, height=height), use_container_width=True, key="assoc_full_heatmap"
         )
 
 
