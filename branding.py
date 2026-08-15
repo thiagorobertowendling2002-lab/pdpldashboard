@@ -130,6 +130,8 @@ def inject_css() -> None:
             color: white;
         }}
         .brand-header {{
+            position: relative;
+            overflow: hidden;
             background-color: white;
             padding: 1rem 1.5rem;
             border-radius: 10px;
@@ -140,6 +142,25 @@ def inject_css() -> None:
             gap: 1rem;
             border-bottom: 4px solid {COLOR_PRIMARY};
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }}
+        /* Grade sutil desvanecendo do centro pra fora, só decorativa (atrás do
+           logo/título) — por isso fica num ::before isolado com z-index abaixo
+           do conteúdo, em vez de background direto no .brand-header. */
+        .brand-header::before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(to right, rgba(79,79,79,0.18) 2px, transparent 2px),
+                linear-gradient(to bottom, rgba(79,79,79,0.18) 1px, transparent 1px);
+            background-size: 14px 24px;
+            -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 70%, transparent 110%);
+            mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 70%, transparent 110%);
+            pointer-events: none;
+        }}
+        .brand-header img, .brand-header h1 {{
+            position: relative;
+            z-index: 1;
         }}
         .brand-header img {{
             height: 56px;

@@ -23,6 +23,17 @@ SECTION_ORDER = ["Amostra"] + [SECTION_NAMES[k] for k in sorted(SECTION_NAMES, k
 
 EXCLUDE_COLUMNS = {"Nome"}
 
+# Colunas com prefixo numérico errado na planilha de origem (ex: "5.7.1." em
+# perguntas de perfil pessoal do produtor, no meio do bloco "Produção e
+# Rebanho"). Corrigidas aqui por texto exato em vez de editar a planilha
+# confidencial, e sem mexer em `current_section` pra não afetar as colunas
+# seguintes que legitimamente pertencem à seção original.
+SECTION_OVERRIDES = {
+    "5.7.1. Possui cônjuge ou companheiro(a)?": "Perfil do Produtor e Renda",
+    "Tem filhos": "Perfil do Produtor e Renda",
+    "Tem filhos que trabalham na propriedade rural": "Perfil do Produtor e Renda",
+}
+
 
 def _section_for(text: str, current: str) -> str:
     m = re.match(r"^(\d+)\.", text.strip())
@@ -95,6 +106,7 @@ def build_catalog():
             continue
 
         current_section = _section_for(text, current_section)
+        section = SECTION_OVERRIDES.get(text, current_section)
 
         s = df[col]
         non_null = s.dropna()
@@ -119,10 +131,10 @@ def build_catalog():
             prefix_label = _clean_label(prefix)
             comp_label = re.sub(r"\s*\(%\)\s*$", "", suffix.strip())
             is_percent = suffix.strip().endswith("(%)")
-            group_key = f"{current_section}||{prefix_label}"
+            group_key = f"{section}||{prefix_label}"
             numeric_groups.setdefault(
                 group_key,
-                {"section": current_section, "label": prefix_label, "is_percent": is_percent, "items": []},
+                {"section": section, "label": prefix_label, "is_percent": is_percent, "items": []},
             )
             numeric_groups[group_key]["items"].append((comp_label, col))
             continue
@@ -135,7 +147,7 @@ def build_catalog():
             active_ms_group = None
             fun_facts.append(
                 {
-                    "section": current_section,
+                    "section": section,
                     "label": _clean_label(text),
                     "value": str(non_null.iloc[0]),
                     "count": len(non_null),
@@ -149,9 +161,9 @@ def build_catalog():
         is_multiselect = non_null.astype(str).str.contains(", ").any()
         if is_multiselect:
             label = _clean_label(text)
-            active_ms_group = f"{current_section}||{label}"
+            active_ms_group = f"{section}||{label}"
             multiselect_groups[active_ms_group] = {
-                "section": current_section,
+                "section": section,
                 "label": label,
                 "items": [],
             }
@@ -162,9 +174,9 @@ def build_catalog():
             m = re.search(r"\(([^()]+)\)\s*$", text)
             if m:
                 unit = m.group(1)
-            numeric_vars.append({"key": col, "label": _clean_label(text), "section": current_section, "unit": unit})
+            numeric_vars.append({"key": col, "label": _clean_label(text), "section": section, "unit": unit})
         else:
-            categorical_vars.append({"key": col, "label": _clean_label(text), "section": current_section})
+            categorical_vars.append({"key": col, "label": _clean_label(text), "section": section})
 
     numeric_groups = {k: v for k, v in numeric_groups.items() if len(v["items"]) >= 2}
     multiselect_groups = {k: v for k, v in multiselect_groups.items() if len(v["items"]) >= 1}
