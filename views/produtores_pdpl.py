@@ -207,45 +207,51 @@ with st.sidebar:
         # de marcador pra detectar embaixo quando ele foi fechado, seja pelo
         # X, Esc, clique fora ou o botão "Aplicar e fechar".
         st.session_state["_adv_filter_dialog_open_this_run"] = True
-        st.caption("Qualquer pergunta da pesquisa, ex: Crédito Rural → PRONAF → Sim")
-        n_visible = st.session_state["n_adv_filters"]
-        for i in range(n_visible):
-            header_col, clear_col = st.columns([6, 1])
-            with header_col:
-                st.markdown(f"**Filtro {i + 1}**" if n_visible > 1 else "**Filtro**")
-            with clear_col:
+        # Marcador só pra CSS (via seletor :has()) reconhecer esse diálogo
+        # especificamente e aplicar o formato de painel lateral deslizante só
+        # nele — os outros diálogos (Explorador, Comparação, Correlações, que
+        # são só 2-3 campos) usam o modal central padrão do Streamlit, mais
+        # leve e proporcional ao tamanho do conteúdo deles.
+        with st.container(key="adv_filter_panel"):
+            st.caption("Qualquer pergunta da pesquisa, ex: Crédito Rural → PRONAF → Sim")
+            n_visible = st.session_state["n_adv_filters"]
+            for i in range(n_visible):
+                header_col, clear_col = st.columns([6, 1])
+                with header_col:
+                    st.markdown(f"**Filtro {i + 1}**" if n_visible > 1 else "**Filtro**")
+                with clear_col:
+                    if st.button(
+                        "",
+                        icon=":material/delete:",
+                        key=f"clear_adv_filter_{i}",
+                        help="Descartar este filtro",
+                        use_container_width=True,
+                    ):
+                        st.session_state[f"adv_section_f{i}"] = "(nenhuma)"
+                        if i == n_visible - 1 and n_visible > 1:
+                            st.session_state["n_adv_filters"] -= 1
+                        st.rerun(scope="fragment")
+                render_advanced_filter(question_options, sections_with_vars, f"f{i}")
+                if i < n_visible - 1:
+                    st.markdown("---")
+
+            st.markdown("")
+            col_add, col_apply = st.columns([1, 1])
+            with col_add:
+                if n_visible < MAX_ADV_FILTERS and st.button(
+                    "Adicionar outro filtro", icon=":material/add:", key="add_adv_filter", use_container_width=True
+                ):
+                    st.session_state["n_adv_filters"] += 1
+                    st.rerun(scope="fragment")
+            with col_apply:
                 if st.button(
-                    "",
-                    icon=":material/delete:",
-                    key=f"clear_adv_filter_{i}",
-                    help="Descartar este filtro",
+                    "Aplicar e fechar",
+                    icon=":material/check:",
+                    key="apply_adv_filter",
+                    type="primary",
                     use_container_width=True,
                 ):
-                    st.session_state[f"adv_section_f{i}"] = "(nenhuma)"
-                    if i == n_visible - 1 and n_visible > 1:
-                        st.session_state["n_adv_filters"] -= 1
-                    st.rerun(scope="fragment")
-            render_advanced_filter(question_options, sections_with_vars, f"f{i}")
-            if i < n_visible - 1:
-                st.markdown("---")
-
-        st.markdown("")
-        col_add, col_apply = st.columns([1, 1])
-        with col_add:
-            if n_visible < MAX_ADV_FILTERS and st.button(
-                "Adicionar outro filtro", icon=":material/add:", key="add_adv_filter", use_container_width=True
-            ):
-                st.session_state["n_adv_filters"] += 1
-                st.rerun(scope="fragment")
-        with col_apply:
-            if st.button(
-                "Aplicar e fechar",
-                icon=":material/check:",
-                key="apply_adv_filter",
-                type="primary",
-                use_container_width=True,
-            ):
-                st.rerun()
+                    st.rerun()
 
     if st.button("Filtro avançado", icon=":material/tune:", key="open_adv_filter_dialog", use_container_width=True):
         advanced_filter_dialog()

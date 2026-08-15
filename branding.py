@@ -355,15 +355,63 @@ def inject_css() -> None:
                 grid-template-columns: repeat(4, 1fr) !important;
             }}
         }}
+        /* Cada card define sua cor de destaque via --accent (uma por card, ver
+           _KPI_ACCENT_COLORS em render_kpi_row) — usada no tint estático, no
+           glow de hover, na linha de acento e no badge do ícone, tudo com
+           color-mix() em vez de repetir a mesma cor em rgba() fixo. */
         .kpi-card {{
+            position: relative;
+            overflow: hidden;
             background-color: white;
-            border-radius: 12px;
+            border-radius: 14px;
             padding: 1rem 1.1rem;
-            border: 1px solid rgba(0,0,0,0.06);
-            border-top: 3px solid {COLOR_PRIMARY_ACCESSIBLE};
-            box-shadow: 0 3px 10px rgba(15,60,70,0.08);
+            border: 1px solid rgba(0,0,0,0.07);
+            box-shadow: 0 2px 8px rgba(15,60,70,0.05);
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }}
+        /* Tint estático (sempre visível, bem sutil) + glow que intensifica no
+           hover — duas camadas, mesma origem, só a opacidade muda. */
+        .kpi-card::before {{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 18% 18%, var(--accent) 0%, transparent 65%);
+            opacity: 0.05;
+            transition: opacity 180ms ease;
+            pointer-events: none;
+        }}
+        @media (hover: hover) and (pointer: fine) {{
+            .kpi-card:hover {{
+                transform: perspective(700px) rotateX(-2deg) rotateY(2deg) translateY(-2px);
+                border-color: color-mix(in srgb, var(--accent) 35%, rgba(0,0,0,0.07));
+                box-shadow: 0 10px 20px -10px color-mix(in srgb, var(--accent) 45%, transparent);
+            }}
+            .kpi-card:hover::before {{
+                opacity: 0.14;
+            }}
+            .kpi-card:hover .kpi-accent-line {{
+                width: 100%;
+            }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .kpi-card {{
+                transition: box-shadow 180ms ease, border-color 180ms ease;
+            }}
+            .kpi-card:hover {{
+                transform: none;
+            }}
+        }}
+        .kpi-card .kpi-accent-line {{
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 0;
+            background: linear-gradient(to right, var(--accent), transparent);
+            transition: width 300ms ease;
         }}
         .kpi-card .kpi-label {{
+            position: relative;
             font-size: 0.78rem;
             line-height: 1.25;
             font-weight: 700;
@@ -373,12 +421,13 @@ def inject_css() -> None:
                outra linha, já que todo card na mesma linha do grid estica
                junto (align-items:stretch) até o mais alto dela. */
             min-height: 1.95rem;
-            color: {COLOR_PRIMARY_ACCESSIBLE};
+            color: var(--accent);
             margin: 0 0 4px 0;
             text-transform: uppercase;
             letter-spacing: 0.03em;
         }}
         .kpi-card .kpi-value {{
+            position: relative;
             font-size: 1.55rem;
             font-weight: 700;
             color: {COLOR_TEXT};
@@ -388,11 +437,13 @@ def inject_css() -> None:
             word-break: break-word;
         }}
         .kpi-card .kpi-icon-badge {{
+            position: relative;
             width: 34px;
             height: 34px;
             border-radius: 9px;
-            background: {COLOR_PRIMARY_ACCESSIBLE};
-            color: white;
+            background: color-mix(in srgb, var(--accent) 16%, white);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+            color: var(--accent);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -442,27 +493,34 @@ def inject_css() -> None:
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }}
 
-        /* Filtro avançado como painel lateral deslizante (evita o corte de texto
-           que acontecia dentro da sidebar estreita) */
+        /* Todo diálogo (Filtro avançado, Explorador, Comparação, Correlações)
+           ganha painel 100% opaco e véu de fundo translúcido — dá pra ver o
+           dashboard atrás (dimmed), mas não dá pra ler, sem misturar com o
+           conteúdo do painel. */
         div[data-testid="stDialog"] > div {{
-            justify-content: flex-start !important;
-            /* Fundo do resto da tela (fora do painel de 560px, em qualquer
-               diálogo — Filtro avançado, Explorador, Comparação, Correlações,
-               que compartilham esse mesmo CSS): véu translúcido — dá pra ver
-               o dashboard por trás (dimmed), mas não dá pra ler o texto. O
-               painel branco em si (regra abaixo) continua 100% sólido. */
             background: rgba(10, 30, 35, 0.6) !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
             position: relative !important;
+            background-color: white !important;
+            opacity: 1 !important;
+        }}
+        /* Só o Filtro avançado (marcado via st.container(key="adv_filter_panel")
+           — :has() localiza o diálogo certo sem precisar de mais nada do lado
+           do Python) vira painel lateral deslizante; ele é o único diálogo
+           complexo o bastante (até 4 filtros em cascata) pra justificar isso.
+           Explorador/Comparação/Correlações são só 2-3 campos e ficam com o
+           modal central padrão do Streamlit — mais leve e do tamanho certo. */
+        div[data-testid="stDialog"] > div:has(.st-key-adv_filter_panel) {{
+            justify-content: flex-start !important;
+        }}
+        div[data-testid="stDialog"] [role="dialog"]:has(.st-key-adv_filter_panel) {{
             width: 560px !important;
             max-width: 94vw !important;
             height: 100vh !important;
             max-height: 100vh !important;
             margin: 0 !important;
             border-radius: 0 18px 18px 0 !important;
-            background-color: white !important;
-            opacity: 1 !important;
             box-shadow: 8px 0 32px rgba(0,0,0,0.22);
             animation: pdplDrawerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
             /* Com vários filtros o conteúdo pode passar da altura da tela — sem
@@ -543,13 +601,35 @@ def inject_css() -> None:
     )
 
 
+# Uma cor de destaque por card (não uma paleta sequencial — os KPIs não têm
+# ordem lógica entre si, cada um é uma métrica independente, então cores bem
+# distintas ajudam a diferenciar os cards de relance).
+_KPI_ACCENT_COLORS = [
+    "#1C9CB4",  # teal (marca)
+    "#008448",  # verde (marca)
+    "#C99A2E",  # dourado
+    "#6C5CE0",  # roxo
+    "#B84C3C",  # terracota
+    "#2E86C1",  # azul
+    "#16A085",  # verde-azulado
+    "#8E44AD",  # violeta
+    "#D35400",  # laranja queimado
+    "#34495E",  # ardósia
+]
+
+
 def render_kpi_row(items: list[tuple[str, str]] | list[tuple[str, str, str]]) -> None:
     """items: lista de (label, valor) ou (chave_do_icone, label, valor)."""
     cards = []
-    for item in items:
+    for i, item in enumerate(items):
         icon, label, value = ("", item[0], item[1]) if len(item) == 2 else item
+        accent = _KPI_ACCENT_COLORS[i % len(_KPI_ACCENT_COLORS)]
         icon_html = f'<div class="kpi-icon-badge">{render_icon(icon, 18)}</div>' if icon else ""
-        cards.append(f'<div class="kpi-card">{icon_html}<p class="kpi-label">{label}</p><p class="kpi-value">{value}</p></div>')
+        cards.append(
+            f'<div class="kpi-card" style="--accent:{accent}">{icon_html}'
+            f'<p class="kpi-label">{label}</p><p class="kpi-value">{value}</p>'
+            f'<div class="kpi-accent-line"></div></div>'
+        )
     st.markdown(f'<div class="kpi-row">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 
