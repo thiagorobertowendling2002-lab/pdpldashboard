@@ -223,10 +223,17 @@ def inject_css() -> None:
         }}
         /* Botão fechar (X) dos diálogos: ícone de 10px num alvo clicável de só
            24x24 — abaixo do mínimo de 44x44 recomendado (WCAG 2.5.5). Aumenta
-           a área clicável via padding sem mudar o tamanho visual do ícone. */
+           a área clicável via padding sem mudar o tamanho visual do ícone.
+           Posição também é forçada explicitamente (canto superior direito do
+           painel de 560px) — sem isso ele pode ficar ancorado num ancestral
+           errado e flutuar longe do painel em telas largas. */
         div[data-testid="stDialog"] button[aria-label="Close"] {{
             width: 44px !important;
             height: 44px !important;
+            position: absolute !important;
+            top: 14px !important;
+            right: 14px !important;
+            left: auto !important;
         }}
         .brand-header {{
             position: relative;
@@ -324,37 +331,39 @@ def inject_css() -> None:
             border-radius: 12px;
             padding: 1rem 1.1rem;
             border: 1px solid rgba(0,0,0,0.06);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            border-top: 3px solid {COLOR_PRIMARY_ACCESSIBLE};
+            box-shadow: 0 3px 10px rgba(15,60,70,0.08);
         }}
         .kpi-card .kpi-label {{
             font-size: 0.78rem;
             line-height: 1.25;
+            font-weight: 700;
             /* Reserva altura de 2 linhas sempre, mesmo quando o rótulo cabe em
                1 — sem isso, a linha de cards com um rótulo mais longo (ex:
                "Produtividade da mão de obra") ficava ~38% mais alta que a
                outra linha, já que todo card na mesma linha do grid estica
                junto (align-items:stretch) até o mais alto dela. */
             min-height: 1.95rem;
-            color: {COLOR_TEXT};
-            opacity: 0.65;
+            color: {COLOR_PRIMARY_ACCESSIBLE};
             margin: 0 0 4px 0;
             text-transform: uppercase;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.03em;
         }}
         .kpi-card .kpi-value {{
-            font-size: 1.5rem;
+            font-size: 1.55rem;
             font-weight: 700;
             color: {COLOR_TEXT};
             margin: 0;
             line-height: 1.2;
+            white-space: nowrap;
             word-break: break-word;
         }}
         .kpi-card .kpi-icon-badge {{
             width: 34px;
             height: 34px;
             border-radius: 9px;
-            background: rgba(28,156,180,0.10);
-            color: {COLOR_PRIMARY};
+            background: {COLOR_PRIMARY_ACCESSIBLE};
+            color: white;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -408,8 +417,14 @@ def inject_css() -> None:
            que acontecia dentro da sidebar estreita) */
         div[data-testid="stDialog"] > div {{
             justify-content: flex-start !important;
+            /* Fundo do resto da tela (fora do painel de 560px) — força um véu
+               escuro translúcido explícito em vez de confiar no tom que o tema
+               calcula sozinho, que em telas largas pode ficar claro demais e
+               parecer "página em branco" atrás do painel. */
+            background: rgba(10, 30, 35, 0.6) !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
+            position: relative !important;
             width: 560px !important;
             max-width: 94vw !important;
             height: 100vh !important;
