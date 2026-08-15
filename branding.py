@@ -189,6 +189,37 @@ def inject_css() -> None:
                 grid-template-columns: repeat(2, 1fr);
             }}
         }}
+
+        /* Navegação "Seções da pesquisa" (12 botões): mesmo raciocínio do
+           .kpi-row acima — sem isso o segmented_control nativo quebra linha por
+           largura disponível (flex-wrap), o que dava 8 em cima / 4 embaixo e
+           mudava conforme a sidebar era aberta/fechada. Grid fixo de 6 colunas
+           força sempre 6+6; `.st-key-nav_sections` é a classe que o Streamlit
+           gera a partir do `key="nav_sections"` do widget, então só afeta esse
+           segmented_control (não o de "Ferramentas de análise", que tem só 3
+           opções e não precisa disso). */
+        .st-key-nav_sections div[role="radiogroup"] {{
+            display: grid !important;
+            grid-template-columns: repeat(6, 1fr) !important;
+            gap: 0.4rem !important;
+        }}
+        .st-key-nav_sections div[role="radiogroup"] button {{
+            width: 100% !important;
+            height: auto !important;
+            min-height: 38px !important;
+        }}
+        /* Largura da coluna corta os rótulos mais longos ("Tecnologia e
+           Conforto Animal", "Manejo Reprodutivo e Sanitário") com reticências
+           por padrão — permite quebrar em 2 linhas em vez de truncar. */
+        .st-key-nav_sections div[role="radiogroup"] button p {{
+            white-space: normal !important;
+            line-height: 1.2 !important;
+        }}
+        @media (max-width: 900px) {{
+            .st-key-nav_sections div[role="radiogroup"] {{
+                grid-template-columns: repeat(4, 1fr) !important;
+            }}
+        }}
         .kpi-card {{
             background-color: white;
             border-radius: 12px;
