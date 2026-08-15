@@ -115,13 +115,23 @@ def render_advanced_filter(
         var = {"key": opt_by_label[opt_label], "kind": "flag"}
         full_label = f"{q_label}: {opt_label}"
         values = st.multiselect(
-            "Resposta", ["Sim", "Não"], default=[], key=f"adv_v_{instance_key}_{section}_{q_label}_{opt_label}"
+            "Resposta",
+            ["Sim", "Não"],
+            default=[],
+            key=f"adv_v_{instance_key}_{section}_{q_label}_{opt_label}",
+            placeholder="Escolha uma opção",
         )
     else:
         var = {"key": question["key"], "kind": "cat"}
         full_label = q_label
         value_pool = sorted(raw[question["key"]].dropna().astype(str).unique().tolist())
-        values = st.multiselect("Resposta", value_pool, default=[], key=f"adv_v_{instance_key}_{section}_{q_label}")
+        values = st.multiselect(
+            "Resposta",
+            value_pool,
+            default=[],
+            key=f"adv_v_{instance_key}_{section}_{q_label}",
+            placeholder="Escolha uma opção",
+        )
 
     return (var, values, full_label) if values else None
 
@@ -173,10 +183,14 @@ with st.sidebar:
     st.markdown("### :material/tune: Filtros")
     st.caption("Deixe em branco para incluir todos")
     options = filter_options()
-    sel_municipio = st.multiselect("Município", options["municipio"], default=[])
-    sel_tipologia = st.multiselect("Tipologia", options["tipologia"], default=[])
-    sel_estrato = st.multiselect("Estrato de produção", options["estrato_producao"], default=[])
-    sel_sistema = st.multiselect("Sistema de produção", options["sistema_producao"], default=[])
+    sel_municipio = st.multiselect("Município", options["municipio"], default=[], placeholder="Escolha uma opção")
+    sel_tipologia = st.multiselect("Tipologia", options["tipologia"], default=[], placeholder="Escolha uma opção")
+    sel_estrato = st.multiselect(
+        "Estrato de produção", options["estrato_producao"], default=[], placeholder="Escolha uma opção"
+    )
+    sel_sistema = st.multiselect(
+        "Sistema de produção", options["sistema_producao"], default=[], placeholder="Escolha uma opção"
+    )
 
     question_options = build_question_options(catalog)
     sections_with_vars = [s for s in SECTION_ORDER if any(q["section"] == s for q in question_options)]
