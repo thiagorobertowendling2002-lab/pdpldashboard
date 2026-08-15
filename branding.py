@@ -355,9 +355,9 @@ def inject_css() -> None:
                 transform: none;
             }}
         }}
-        /* Cada card define sua cor de destaque via --accent (uma por card, ver
-           _KPI_ACCENT_COLORS em render_kpi_row) — usada no tint estático, no
-           glow de hover, na linha de acento e no badge do ícone, tudo com
+        /* Cada card define sua cor de destaque via --accent (uma por categoria,
+           ver _KPI_CATEGORY_COLORS em render_kpi_row) — usada no tint estático,
+           no glow de hover, na linha de acento e no badge do ícone, tudo com
            color-mix() em vez de repetir a mesma cor em rgba() fixo. */
         .kpi-card {{
             position: relative;
@@ -611,27 +611,22 @@ def inject_css() -> None:
 
 # Uma cor de destaque por card (não uma paleta sequencial — os KPIs não têm
 # ordem lógica entre si, cada um é uma métrica independente, então cores bem
-# distintas ajudam a diferenciar os cards de relance).
-_KPI_ACCENT_COLORS = [
-    "#1C9CB4",  # teal (marca)
-    "#008448",  # verde (marca)
-    "#C99A2E",  # dourado
-    "#6C5CE0",  # roxo
-    "#B84C3C",  # terracota
-    "#2E86C1",  # azul
-    "#16A085",  # verde-azulado
-    "#8E44AD",  # violeta
-    "#D35400",  # laranja queimado
-    "#34495E",  # ardósia
-]
+# 3 cores com significado (não 10 soltas): cada KPI pertence a uma categoria
+# real, e a cor comunica isso de relance em vez de só diferenciar cards.
+# Todas as 3 passam WCAG AA (4.5:1+) como texto sobre fundo branco.
+_KPI_CATEGORY_COLORS = {
+    "producao": COLOR_PRIMARY_ACCESSIBLE,  # #157B8F — 4.93:1
+    "perfil": COLOR_SECONDARY,  # #008448 — 4.78:1
+    "financeiro": "#8A6A1F",  # dourado escurecido — 5.05:1 (o #C99A2E original dava só 2.58:1)
+}
 
 
-def render_kpi_row(items: list[tuple[str, str]] | list[tuple[str, str, str]]) -> None:
-    """items: lista de (label, valor) ou (chave_do_icone, label, valor)."""
+def render_kpi_row(items: list[tuple[str, str, str, str]]) -> None:
+    """items: lista de (chave_do_ícone, label, valor, categoria), categoria em
+    "producao" | "perfil" | "financeiro"."""
     cards = []
-    for i, item in enumerate(items):
-        icon, label, value = ("", item[0], item[1]) if len(item) == 2 else item
-        accent = _KPI_ACCENT_COLORS[i % len(_KPI_ACCENT_COLORS)]
+    for icon, label, value, category in items:
+        accent = _KPI_CATEGORY_COLORS[category]
         icon_html = f'<div class="kpi-icon-badge">{render_icon(icon, 18)}</div>' if icon else ""
         cards.append(
             f'<div class="kpi-card" style="--accent:{accent}">{icon_html}'
@@ -639,6 +634,19 @@ def render_kpi_row(items: list[tuple[str, str]] | list[tuple[str, str, str]]) ->
             f'<div class="kpi-accent-line"></div></div>'
         )
     st.markdown(f'<div class="kpi-row">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+
+def render_kpi_legend() -> None:
+    """Legenda das 3 categorias de KPI — cor sozinha nunca deve ser o único
+    jeito de comunicar significado (WCAG 1.4.1), então isso deixa explícito
+    por texto o que cada cor de render_kpi_row representa."""
+    render_color_legend(
+        [
+            ("Produção/operação", _KPI_CATEGORY_COLORS["producao"]),
+            ("Perfil do produtor", _KPI_CATEGORY_COLORS["perfil"]),
+            ("Financeiro", _KPI_CATEGORY_COLORS["financeiro"]),
+        ]
+    )
 
 
 def render_color_legend(items: list[tuple[str, str]], title: str = "") -> None:

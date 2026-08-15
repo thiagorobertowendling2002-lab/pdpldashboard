@@ -7,7 +7,15 @@ import streamlit.components.v1 as components
 
 import charts
 from association import compute_association_matrix, factor_ranking, strength_label
-from branding import render_color_legend, render_footer, render_header, render_kpi_row, render_pictogram, render_section_header
+from branding import (
+    render_color_legend,
+    render_footer,
+    render_header,
+    render_kpi_legend,
+    render_kpi_row,
+    render_pictogram,
+    render_section_header,
+)
 from data_loader import ESTRATO_ORDER, SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
 
 render_header("Produtores PDPL")
@@ -329,20 +337,23 @@ RENDA_LEITE_COL = "2.9. Composição da renda bruta do produtor rural: Pecuária
 produtividade_terra = ((df[PRODUCAO_COL] * 365) / df[AREA_COL].replace(0, pd.NA)).mean()
 produtividade_mao_obra = (df[PRODUCAO_COL] / df[MDO_COL].replace(0, pd.NA)).mean()
 
+# Categoria de cada KPI ("producao" | "perfil" | "financeiro") pra
+# render_kpi_row colorir por significado, não por posição na fileira.
 render_kpi_row(
     [
-        ("users", "Produtores", str(len(df))),
-        ("droplet", "Produção média", f"{fmt_br(df[PRODUCAO_COL].mean(), 0)} L/dia"),
-        ("trending-up", "Produtividade média", f"{fmt_br(df[PRODUTIVIDADE_COL].mean())} L/vaca/d"),
-        ("map", "Área p/ gado de leite", f"{fmt_br(df[AREA_COL].mean())} ha"),
-        ("calendar", "Idade média", f"{fmt_br(df[IDADE_COL].mean(), 0)} anos"),
-        ("tag", "Preço médio recebido", f"R$ {fmt_br(df[PRECO_COL].mean(), 2)}"),
-        ("sprout", "Produtividade da terra", f"{fmt_br(produtividade_terra, 0)} L/ha/ano"),
-        ("briefcase", "Produtividade da mão de obra", f"{fmt_br(produtividade_mao_obra, 0)} L/trab/dia"),
-        ("clock", "Tempo como produtor", f"{fmt_br(df[TEMPO_PRODUTOR_COL].mean(), 0)} anos"),
-        ("banknote", "Renda da pecuária leiteira", f"{fmt_br(df[RENDA_LEITE_COL].mean(), 0)}%"),
+        ("users", "Produtores", str(len(df)), "perfil"),
+        ("droplet", "Produção média", f"{fmt_br(df[PRODUCAO_COL].mean(), 0)} L/dia", "producao"),
+        ("trending-up", "Produtividade média", f"{fmt_br(df[PRODUTIVIDADE_COL].mean())} L/vaca/d", "producao"),
+        ("map", "Área p/ gado de leite", f"{fmt_br(df[AREA_COL].mean())} ha", "producao"),
+        ("calendar", "Idade média", f"{fmt_br(df[IDADE_COL].mean(), 0)} anos", "perfil"),
+        ("tag", "Preço médio recebido", f"R$ {fmt_br(df[PRECO_COL].mean(), 2)}", "financeiro"),
+        ("sprout", "Produtividade da terra", f"{fmt_br(produtividade_terra, 0)} L/ha/ano", "producao"),
+        ("briefcase", "Produtividade da mão de obra", f"{fmt_br(produtividade_mao_obra, 0)} L/trab/dia", "producao"),
+        ("clock", "Tempo como produtor", f"{fmt_br(df[TEMPO_PRODUTOR_COL].mean(), 0)} anos", "perfil"),
+        ("banknote", "Renda da pecuária leiteira", f"{fmt_br(df[RENDA_LEITE_COL].mean(), 0)}%", "financeiro"),
     ]
 )
+render_kpi_legend()
 
 st.markdown("")
 
