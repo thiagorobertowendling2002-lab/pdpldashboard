@@ -33,12 +33,11 @@ except FileNotFoundError:
     st.stop()
 
 
-def _wrap_label(text: str, width: int = 38, max_lines: int = 2) -> str:
-    """Quebra em até `max_lines` linhas (respeitando palavra inteira, via
-    `<br>` — Plotly interpreta como quebra de linha em ticks/labels), só
-    cortando com "…" se ainda sobrar texto depois disso."""
-    lines = textwrap.wrap(text, width=width, max_lines=max_lines, placeholder=" …")
-    return "<br>".join(lines) if lines else text
+def _wrap_label(text: str, width: int = 40) -> str:
+    """Quebra em quantas linhas forem necessárias (respeitando palavra
+    inteira, via `<br>` — Plotly interpreta como quebra de linha em
+    ticks/labels) — nunca corta com "…", por mais longa que a frase seja."""
+    return "<br>".join(textwrap.wrap(text, width=width)) or text
 
 
 def fmt_br(value, decimals: int = 1) -> str:
@@ -744,7 +743,7 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
     # caracteres deixava a maioria das perguntas (que são frases longas da
     # pesquisa) ilegível mesmo passando o mouse, porque o hover também usava
     # o texto já cortado. Só corta de verdade se ainda não couber em 2 linhas.
-    wrapped_labels = [_wrap_label(lbl, width=38, max_lines=2) for lbl in full_labels]
+    wrapped_labels = [_wrap_label(lbl, width=38) for lbl in full_labels]
 
     with st.container(border=True):
         if len(filtered) > MAX_BARS:

@@ -370,11 +370,14 @@ def factor_association_bar(
     cada um dos outros já listados em `ranking` (mão única, other_key). Barra
     azul/vermelha (RdBu) quando o método tem sinal (Pearson/ponto-bisserial/
     Phi); roxo neutro quando não tem (η, Cramér's V) — pra não sugerir uma
-    direção que a métrica não define. `labels` já vem quebrado em até 2
-    linhas (não truncado) — `full_labels` (opcional) é o texto sem quebra,
-    só pro hover, pro caso raro de ainda sobrar texto cortado."""
+    direção que a métrica não define. `labels` já vem quebrado em várias
+    linhas (nunca truncado) — `full_labels` (opcional) é o texto sem quebra,
+    só pro hover. Plotly dá a mesma altura pra toda linha do eixo categórico,
+    então a altura da figura precisa considerar o rótulo com MAIS linhas de
+    todos, não uma altura fixa por barra."""
     n = len(ranking)
-    height = height or max(280, 46 * n)
+    max_label_lines = max((lbl.count("<br>") + 1 for lbl in labels), default=1)
+    height = height or max(280, n * (22 * max_label_lines + 20))
     full_labels = full_labels or labels
     plot_values = []
     colors = []
