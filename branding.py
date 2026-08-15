@@ -134,7 +134,7 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
         align_style = "right:0;text-align:right;" if is_left else "left:0;text-align:left;"
         label_html = (
             f'<div style="position:absolute;top:{top_px:.0f}px;{align_style}width:{label_w}px;font-size:0.76rem;'
-            f'line-height:1.2;color:{COLOR_TEXT};">'
+            f'line-height:1.2;color:{color};">'
             f'<span style="font-weight:700;font-size:1.05rem;color:{color};">{pct}%</span><br>{clean_label}'
             "</div>"
         )
