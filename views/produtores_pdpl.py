@@ -201,7 +201,7 @@ def filter_mask(var: dict, values: list[str]) -> pd.Series:
 # Ficam na sidebar de propósito: assim dá pra ajustar um filtro e ver o resultado nos
 # gráficos na hora, em qualquer parte da página, sem precisar rolar até o topo.
 with st.sidebar:
-    st.markdown("### 🔎 Filtros")
+    st.markdown("### :material/tune: Filtros")
     st.caption("Deixe em branco para incluir todos")
     options = filter_options()
     sel_municipio = st.multiselect("Município", options["municipio"], default=[])
@@ -216,13 +216,26 @@ with st.sidebar:
     if "n_adv_filters" not in st.session_state:
         st.session_state["n_adv_filters"] = 1
 
-    @st.dialog("⚙️ Filtro avançado", width="large", on_dismiss="rerun")
+    @st.dialog(":material/tune: Filtro avançado", width="large", on_dismiss="rerun")
     def advanced_filter_dialog():
         st.caption("Qualquer pergunta da pesquisa, ex: Crédito Rural → PRONAF → Sim")
         n_visible = st.session_state["n_adv_filters"]
         for i in range(n_visible):
-            if n_visible > 1:
-                st.markdown(f"**Filtro {i + 1}**")
+            header_col, clear_col = st.columns([6, 1])
+            with header_col:
+                st.markdown(f"**Filtro {i + 1}**" if n_visible > 1 else "**Filtro**")
+            with clear_col:
+                if st.button(
+                    "",
+                    icon=":material/delete:",
+                    key=f"clear_adv_filter_{i}",
+                    help="Descartar este filtro",
+                    use_container_width=True,
+                ):
+                    st.session_state[f"adv_section_f{i}"] = "(nenhuma)"
+                    if i == n_visible - 1 and n_visible > 1:
+                        st.session_state["n_adv_filters"] -= 1
+                    st.rerun(scope="fragment")
             render_advanced_filter(question_options, sections_with_vars, f"f{i}")
             if i < n_visible - 1:
                 st.markdown("---")
@@ -231,15 +244,21 @@ with st.sidebar:
         col_add, col_apply = st.columns([1, 1])
         with col_add:
             if n_visible < MAX_ADV_FILTERS and st.button(
-                "➕ Adicionar outro filtro", key="add_adv_filter", use_container_width=True
+                "Adicionar outro filtro", icon=":material/add:", key="add_adv_filter", use_container_width=True
             ):
                 st.session_state["n_adv_filters"] += 1
                 st.rerun(scope="fragment")
         with col_apply:
-            if st.button("✅ Aplicar e fechar", key="apply_adv_filter", type="primary", use_container_width=True):
+            if st.button(
+                "Aplicar e fechar",
+                icon=":material/check:",
+                key="apply_adv_filter",
+                type="primary",
+                use_container_width=True,
+            ):
                 st.rerun()
 
-    if st.button("⚙️ Filtro avançado", key="open_adv_filter_dialog", use_container_width=True):
+    if st.button("Filtro avançado", icon=":material/tune:", key="open_adv_filter_dialog", use_container_width=True):
         advanced_filter_dialog()
 
     active_filters: list[tuple[dict, list[str], str]] = []
@@ -292,16 +311,16 @@ produtividade_mao_obra = (df[PRODUCAO_COL] / df[MDO_COL].replace(0, pd.NA)).mean
 
 render_kpi_row(
     [
-        ("👥", "Produtores", str(len(df))),
-        ("🥛", "Produção média", f"{fmt_br(df[PRODUCAO_COL].mean(), 0)} L/dia"),
-        ("📈", "Produtividade média", f"{fmt_br(df[PRODUTIVIDADE_COL].mean())} L/vaca/d"),
-        ("🌾", "Área p/ gado de leite", f"{fmt_br(df[AREA_COL].mean())} ha"),
-        ("🎂", "Idade média", f"{fmt_br(df[IDADE_COL].mean(), 0)} anos"),
-        ("💰", "Preço médio recebido", f"R$ {fmt_br(df[PRECO_COL].mean(), 2)}"),
-        ("🌱", "Produtividade da terra", f"{fmt_br(produtividade_terra, 0)} L/ha/ano"),
-        ("👷", "Produtividade da mão de obra", f"{fmt_br(produtividade_mao_obra, 0)} L/trab/dia"),
-        ("⏳", "Tempo como produtor", f"{fmt_br(df[TEMPO_PRODUTOR_COL].mean(), 0)} anos"),
-        ("💵", "Renda da pecuária leiteira", f"{fmt_br(df[RENDA_LEITE_COL].mean(), 0)}%"),
+        ("users", "Produtores", str(len(df))),
+        ("droplet", "Produção média", f"{fmt_br(df[PRODUCAO_COL].mean(), 0)} L/dia"),
+        ("trending-up", "Produtividade média", f"{fmt_br(df[PRODUTIVIDADE_COL].mean())} L/vaca/d"),
+        ("map", "Área p/ gado de leite", f"{fmt_br(df[AREA_COL].mean())} ha"),
+        ("calendar", "Idade média", f"{fmt_br(df[IDADE_COL].mean(), 0)} anos"),
+        ("tag", "Preço médio recebido", f"R$ {fmt_br(df[PRECO_COL].mean(), 2)}"),
+        ("sprout", "Produtividade da terra", f"{fmt_br(produtividade_terra, 0)} L/ha/ano"),
+        ("briefcase", "Produtividade da mão de obra", f"{fmt_br(produtividade_mao_obra, 0)} L/trab/dia"),
+        ("clock", "Tempo como produtor", f"{fmt_br(df[TEMPO_PRODUTOR_COL].mean(), 0)} anos"),
+        ("banknote", "Renda da pecuária leiteira", f"{fmt_br(df[RENDA_LEITE_COL].mean(), 0)}%"),
     ]
 )
 
@@ -381,23 +400,23 @@ def render_section(section: str) -> None:
         return
 
     if facts:
-        render_section_header("Pontos em comum na amostra", "✅")
+        render_section_header("Pontos em comum na amostra", "check-square")
         render_fun_facts(facts)
 
     if cat_vars:
-        render_section_header("Perfil", "👤")
+        render_section_header("Perfil", "user")
         render_categorical_grid(cat_vars, key_prefix)
 
     if num_groups:
-        render_section_header("Composição", "🧮")
+        render_section_header("Composição", "pie-chart")
         render_numeric_groups(num_groups, key_prefix)
 
     if ms_groups:
-        render_section_header("Múltipla escolha", "☑️")
+        render_section_header("Múltipla escolha", "check-square")
         render_multiselect_groups(ms_groups, key_prefix)
 
     if num_vars:
-        render_section_header("Indicadores numéricos", "📐")
+        render_section_header("Indicadores numéricos", "bar-chart")
         render_numeric_grid(num_vars, key_prefix)
 
 
@@ -419,21 +438,22 @@ def bin_numeric(series: pd.Series) -> pd.Series:
     return result
 
 
-# ---------------------------------------------------------------- Tabs
+# ---------------------------------------------------------------- Navegação
+# Um segmented_control (em vez de st.tabs) porque só ele deixa o Python saber
+# qual vista está selecionada — com st.tabs, TODAS as abas são construídas a
+# cada rerun (mesmo as escondidas), o que é o motivo real da demora entre
+# aplicar um filtro e os dados aparecerem quando há 15 abas com gráficos.
+# Aqui, só a vista selecionada é processada, e trocar de vista fica dentro do
+# fragmento (não recarrega a página inteira).
 section_tabs = [s for s in SECTION_ORDER if s != "Amostra"]
-tab_labels = (
-    ["📊 Visão Geral"]
-    + section_tabs
-    + ["🔍 Explorador", "🧩 Comparação e Filtragem entre Parâmetros", "🔗 Correlações"]
-)
-tabs = st.tabs(tab_labels)
 
-with tabs[0]:
-    render_section_header("Amostra", "🗂️")
+
+def render_visao_geral(catalog: dict) -> None:
+    render_section_header("Amostra", "folder")
     amostra_vars = [v for v in catalog["categorical_vars"] if v["section"] == "Amostra"]
     render_categorical_grid(amostra_vars, "visao_geral")
 
-    render_section_header("Destaques", "⭐")
+    render_section_header("Destaques", "star")
     highlight_keys = {
         "Perfil do Produtor e Renda": ["Escolaridade", "Sexo"],
         "Motivação e Percepção": ["Atualmente, seu retorno financeiro na produção de leite pode ser considerado"],
@@ -445,12 +465,9 @@ with tabs[0]:
                 highlights.append(v)
     render_categorical_grid(highlights, "visao_geral_destaques")
 
-for section, tab in zip(section_tabs, tabs[1 : 1 + len(section_tabs)]):
-    with tab:
-        render_section(section)
 
-with tabs[-3]:
-    render_section_header("Compare quaisquer duas variáveis da pesquisa", "🔍")
+def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
+    render_section_header("Compare quaisquer duas variáveis da pesquisa", "search")
     with st.container(border=True):
         st.caption(
             "Inclui perguntas de resposta única, números **e cada opção de perguntas de múltipla escolha** "
@@ -492,6 +509,42 @@ with tabs[-3]:
         st.markdown(f"**{chart_title}**")
         st.plotly_chart(fig, use_container_width=True, key="explorer_chart")
 
+
+def render_correlacoes_tab(df: pd.DataFrame, catalog: dict) -> None:
+    render_section_header("Correlação entre variáveis numéricas", "link")
+    st.caption(
+        "Coeficiente de correlação linear de Pearson (r): quanto mais próximo de 1 (azul) ou -1 (vermelho), "
+        "mais forte a relação **linear** entre as duas variáveis — valores próximos de 0 não descartam uma "
+        "relação não linear. Correlação não implica causalidade. Mostrando só o triângulo inferior (a matriz "
+        "é espelhada: A×B tem o mesmo r que B×A) — passe o mouse pra ver o nome completo e o valor exato."
+    )
+    threshold = st.slider(
+        "Mostrar apenas correlações com |r| maior ou igual a",
+        min_value=0.0,
+        max_value=0.9,
+        value=0.5,
+        step=0.05,
+        key="corr_threshold",
+        help="Correlações mais fracas que isso ficam em branco pra reduzir poluição visual.",
+    )
+    num_keys = [v["key"] for v in catalog["numeric_vars"]]
+    num_labels = {v["key"]: v["label"] for v in catalog["numeric_vars"]}
+    corr_df = df[num_keys].rename(columns=num_labels)
+    corr = corr_df.corr(numeric_only=True)
+    height = max(500, 24 * len(num_keys))
+    with st.container(border=True):
+        st.plotly_chart(
+            charts.correlation_heatmap(corr, height=height, threshold=threshold),
+            use_container_width=True,
+            key="corr_heatmap",
+        )
+        st.caption(
+            f":material/warning: Calculado sobre **{len(df)}** produtores — amostra pequena para fins "
+            "estatísticos: coeficientes de correlação são sensíveis a valores atípicos e podem mudar bastante "
+            "com poucas observações a mais ou a menos. Interprete como indicativo, não conclusivo."
+        )
+
+
 @st.fragment
 def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
     """Roda isolado do resto da página (fragmento): escolher/trocar variáveis aqui
@@ -516,7 +569,9 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
                 if result:
                     picked.append(result)
 
-        if n_visible < MAX_COMPARE_VARS and st.button("➕ Adicionar variável", key="add_compare_var"):
+        if n_visible < MAX_COMPARE_VARS and st.button(
+            "Adicionar variável", icon=":material/add:", key="add_compare_var"
+        ):
             st.session_state["n_compare_vars"] += 1
             st.rerun(scope="fragment")
 
@@ -561,17 +616,17 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
             render_color_legend(legend_items, title=f"{dim_labels[0]}:")
             if any(v["kind"] == "num" for v in chosen_vars):
                 st.caption(
-                    "ℹ️ Variáveis numéricas são divididas em quartis da própria amostra filtrada "
+                    ":material/info: Variáveis numéricas são divididas em quartis da própria amostra filtrada "
                     "(25% mais baixo = \"Baixo\" ... 25% mais alto = \"Alto\") pra poder aparecer no gráfico — "
                     "não são faixas fixas definidas externamente."
                 )
             if len(df_multi) < 15:
                 st.caption(
-                    f"⚠️ Amostra atual de **{len(df_multi)}** produtores — com poucos casos, cada caminho no "
-                    "gráfico pode representar 1 ou 2 produtores; interprete padrões com cautela."
+                    f":material/warning: Amostra atual de **{len(df_multi)}** produtores — com poucos casos, cada "
+                    "caminho no gráfico pode representar 1 ou 2 produtores; interprete padrões com cautela."
                 )
 
-        render_section_header("Tabela dos produtores filtrados", "📋")
+        render_section_header("Tabela dos produtores filtrados", "grid")
         with st.container(border=True):
             st.caption("Cada linha é um produtor da amostra atual, com as respostas nas variáveis escolhidas.")
             table_df = df[[v["key"] for v in chosen_vars]].copy()
@@ -582,28 +637,72 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
             st.dataframe(table_df, use_container_width=True, height=min(400, 40 + 35 * len(table_df)))
 
 
-with tabs[-2]:
-    render_section_header("Comparação e Filtragem entre Parâmetros", "🧩")
-    render_compare_tab(df, catalog)
+TOOL_OPTIONS = [
+    ":material/search: Explorador",
+    ":material/filter_alt: Comparação e Filtragem entre Parâmetros",
+    ":material/link: Correlações",
+]
 
-with tabs[-1]:
-    render_section_header("Correlação entre variáveis numéricas", "🔗")
-    st.caption(
-        "Coeficiente de correlação linear de Pearson (r): quanto mais próximo de 1 (azul) ou -1 (vermelho), "
-        "mais forte a relação **linear** entre as duas variáveis — valores próximos de 0 não descartam uma "
-        "relação não linear. Correlação não implica causalidade."
+
+@st.fragment
+def render_main_nav(df: pd.DataFrame, catalog: dict, section_tabs: list[str]) -> None:
+    """Um único fragmento cuida de toda a navegação principal: trocar de vista
+    só reprocessa o que está aqui dentro, não a página inteira.
+
+    Duas linhas separadas porque são dois tipos de navegação diferentes: uma
+    pra percorrer as seções da própria pesquisa, outra pra ferramentas de
+    análise cruzada (que não pertencem a nenhuma seção em particular)."""
+    section_options = [":material/dashboard: Visão Geral"] + section_tabs
+
+    if "active_nav_group" not in st.session_state:
+        st.session_state["active_nav_group"] = "sections"
+    if "nav_sections" not in st.session_state:
+        st.session_state["nav_sections"] = section_options[0]
+
+    def _use_sections():
+        st.session_state["active_nav_group"] = "sections"
+        st.session_state["nav_tools"] = None
+
+    def _use_tools():
+        st.session_state["active_nav_group"] = "tools"
+        st.session_state["nav_sections"] = None
+
+    st.caption("Seções da pesquisa")
+    selected_section = st.segmented_control(
+        "Seções da pesquisa",
+        section_options,
+        label_visibility="collapsed",
+        key="nav_sections",
+        on_change=_use_sections,
     )
-    num_keys = [v["key"] for v in catalog["numeric_vars"]]
-    num_labels = {v["key"]: v["label"] for v in catalog["numeric_vars"]}
-    corr_df = df[num_keys].rename(columns=num_labels)
-    corr = corr_df.corr(numeric_only=True)
-    height = max(600, 26 * len(num_keys))
-    with st.container(border=True):
-        st.plotly_chart(charts.correlation_heatmap(corr, height=height), use_container_width=True, key="corr_heatmap")
-        st.caption(
-            f"⚠️ Calculado sobre **{len(df)}** produtores — amostra pequena para fins estatísticos: "
-            "coeficientes de correlação são sensíveis a valores atípicos e podem mudar bastante com "
-            "poucas observações a mais ou a menos. Interprete como indicativo, não conclusivo."
-        )
+    st.caption("Ferramentas de análise")
+    selected_tool = st.segmented_control(
+        "Ferramentas de análise",
+        TOOL_OPTIONS,
+        label_visibility="collapsed",
+        key="nav_tools",
+        on_change=_use_tools,
+    )
+    st.markdown("")
+
+    if st.session_state["active_nav_group"] == "tools" and selected_tool:
+        selected = selected_tool
+    else:
+        selected = selected_section or section_options[0]
+
+    if selected == section_options[0]:
+        render_visao_geral(catalog)
+    elif selected in section_tabs:
+        render_section(selected)
+    elif selected == TOOL_OPTIONS[0]:
+        render_explorador_tab(df, catalog)
+    elif selected == TOOL_OPTIONS[1]:
+        render_section_header("Comparação e Filtragem entre Parâmetros", "filter")
+        render_compare_tab(df, catalog)
+    elif selected == TOOL_OPTIONS[2]:
+        render_correlacoes_tab(df, catalog)
+
+
+render_main_nav(df, catalog, section_tabs)
 
 render_footer()

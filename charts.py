@@ -212,27 +212,80 @@ def composition_bar(items: list[tuple[str, float]], is_percent: bool = True, hei
     return _base_layout(fig, max(height, 42 * len(items)))
 
 
-def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:
-    short_labels = [_truncate(str(c), max_len=34) for c in corr.columns]
+_CORR_SHORT_LABELS = {
+    "Idade (anos)": "Idade",
+    "Tempo que é produtor(a) de leite (anos)": "Tempo produtor",
+    "Produção de leite média dos últimos 12 meses (consumido + vendido) (litros/dia)": "Produção total",
+    "Produção nas águas (litros/dia)": "Produção (águas)",
+    "Produção na seca (litros/dia)": "Produção (seca)",
+    "Produtividade média / vaca em lactação (litros/vaca/dia)": "Produtiv. média",
+    "Produtividade nas águas (litros/vaca/dia)": "Produtiv. (águas)",
+    "Produtividade na seca (litros/vaca/dia)": "Produtiv. (seca)",
+    "Área própria total da propriedade (hectares)": "Área total",
+    "Área destinada ao gado de leite (hectares)": "Área p/ gado",
+    "Total familiar (trabalhador/dia)": "MDO familiar",
+    "Total contratada (trabalhador/dia)": "MDO contratada",
+    "Mdo total (trabalhador/dia)": "MDO total",
+    "Número de ordenhas nas águas": "Ordenhas (águas)",
+    "Número de ordenhas na seca": "Ordenhas (seca)",
+    "Se sim, qual o valor médio anual do seu custo de produção? (R$/litro)": "Custo produção",
+    "Nos últimos 12 meses, quantas vezes um técnico visitou sua propriedade para orientá-lo(a) sobre a produção de leite? (visitas/ano)": "Visitas técnicas",
+    "Idade média que desfaz dos machos (meses)": "Idade desfaz machos",
+    "Idade média de desmama dos bezerros(as) (meses)": "Idade desmame",
+    "Peso médio ao desmame dos bezerros(as) (Kg)": "Peso ao desmame",
+    "Idade média das novilhas ao primeiro parto (meses)": "Idade 1º parto",
+    "Intervalo entre partos médio (meses)": "Intervalo partos",
+    "Taxa de mortalidade média de bezerros (%)": "Mortal. bezerros",
+    "Taxa de mortalidade média de animais adultos (%)": "Mortal. adultos",
+    "Há quanto tempo vende para o mesmo comprador? (anos)": "Tempo c/ comprador",
+    "Preço recebido no último mês? (R$/litro)": "Preço (mês)",
+    "Preço médio recebido nas águas? (R$/litro)": "Preço (águas)",
+    "Preço médio recebido na seca? (R$/litro)": "Preço (seca)",
+}
+
+
+def _short_corr_label(label: str) -> str:
+    return _CORR_SHORT_LABELS.get(label, _truncate(label, max_len=18))
+
+
+def correlation_heatmap(corr: pd.DataFrame, height: int = 600, threshold: float = 0.5) -> go.Figure:
+    """Mapa de calor de correlação, só com o triângulo inferior (a matriz é
+    espelhada — mostrar as duas metades só duplica a informação) e só destacando
+    |r| >= threshold (correlações fracas viram ruído visual e são escondidas)."""
+    full_labels = list(corr.columns)
+    short_labels = [_short_corr_label(c) for c in full_labels]
+    n = len(full_labels)
+    values = corr.values.astype(float)
+
+    upper_or_diag = np.triu(np.ones((n, n), dtype=bool), k=0)
+    weak = np.abs(values) < threshold
+    z_display = np.where(upper_or_diag | weak, np.nan, values)
+
+    customdata = [
+        [f"{full_labels[c]} × {full_labels[r]}<br>r = {values[r, c]:.2f}" for c in range(n)] for r in range(n)
+    ]
+
     fig = go.Figure(
         go.Heatmap(
-            z=corr.values,
+            z=z_display,
             x=short_labels,
             y=short_labels,
-            customdata=[[f"{a} × {b}" for a in corr.columns] for b in corr.columns],
-            colorscale=[[0, "#D1667B"], [0.5, "#F5F8F9"], [1, COLOR_PRIMARY]],
+            customdata=customdata,
+            colorscale="RdBu",
             zmid=0,
             zmin=-1,
             zmax=1,
+            xgap=2,
+            ygap=2,
             colorbar=dict(title="r"),
-            hovertemplate="%{customdata}<br>r = %{z:.2f}<extra></extra>",
+            hovertemplate="%{customdata}<extra></extra>",
         )
     )
     fig = _base_layout(fig, height)
     fig.update_layout(
         xaxis=dict(tickangle=-45, automargin=True, tickfont=dict(size=10)),
         yaxis=dict(autorange="reversed", automargin=True, tickfont=dict(size=10)),
-        margin=dict(t=16, b=260, l=320, r=16),
+        margin=dict(t=16, b=140, l=160, r=16),
     )
     return fig
 

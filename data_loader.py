@@ -31,6 +31,19 @@ def _section_for(text: str, current: str) -> str:
     return current
 
 
+_QUESTION_NUMBER_RE = re.compile(r"^\d+(\.\d+)*\.?\s")
+
+
+def _is_numbered_question(text: str) -> bool:
+    """Item de marcar/desmarcar de um grupo de múltipla escolha nunca tem
+    numeração própria no cabeçalho (é só o texto da opção, ex: "PRONAF") — só
+    uma pergunta nova de verdade começa com "N." ou "N.M." (ex: "9.3. Possui
+    energia elétrica..."). Serve pra não confundir uma pergunta nova que por
+    coincidência também só tem 1 valor único na amostra com um item do grupo
+    de múltipla escolha anterior."""
+    return bool(_QUESTION_NUMBER_RE.match(text.strip()))
+
+
 def _clean_label(text: str) -> str:
     text = re.sub(r"^\d+(\.\d+)*\.?\s*", "", text.strip())
     text = text.strip()
@@ -91,6 +104,11 @@ def build_catalog():
 
         nunique = non_null.nunique()
         is_numeric = pd.api.types.is_numeric_dtype(s)
+
+        # Uma pergunta nova de verdade (numeração própria no cabeçalho) nunca é
+        # item de um grupo de múltipla escolha anterior, mesmo com nunique <= 1.
+        if active_ms_group is not None and _is_numbered_question(text):
+            active_ms_group = None
 
         # Colunas numéricas com "prefixo: componente" pertencem a um grupo de
         # composição independentemente do nunique (mesmo se todo mundo respondeu o
