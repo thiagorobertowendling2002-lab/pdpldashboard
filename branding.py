@@ -530,19 +530,18 @@ def inject_css() -> None:
             margin: 0 !important;
             border-radius: 0 18px 18px 0 !important;
             box-shadow: 8px 0 32px rgba(0,0,0,0.22);
-            animation: pdplDrawerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+            /* Sem animação de deslizar aqui de propósito (era um translateX
+               saindo de fora da tela) — o diálogo só ganha essa marcação
+               (:has(.st-key-adv_filter_panel)) depois que o conteúdo já
+               carregou, e nesse intervalo entre o modal padrão nascer e o CSS
+               de painel lateral aplicar, a animação ficava visível a meio
+               caminho, fora da tela, com a sidebar por trás aparecendo sem o
+               véu escuro por cima. Sem animação, o painel já nasce no lugar
+               certo, sem estado intermediário pra vazar. */
             /* Com vários filtros o conteúdo pode passar da altura da tela — sem
                isso o botão "Aplicar e fechar" simplesmente some, sem como rolar
                até ele. */
             overflow-y: auto !important;
-        }}
-        /* Só desliza — sem dip de opacidade durante a animação. Um opacity <
-           1 no meio da transição deixava o painel branco temporariamente
-           translúcido, e a sidebar (que fica atrás, na mesma região da tela)
-           bleedava através dele nesse instante. */
-        @keyframes pdplDrawerIn {{
-            from {{ transform: translateX(-100%); }}
-            to   {{ transform: translateX(0); }}
         }}
 
         /* Legenda de cores customizada (ex: gráfico de categorias paralelas) */
