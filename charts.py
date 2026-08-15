@@ -88,8 +88,18 @@ def donut(counts: pd.Series, height: int = 320) -> go.Figure:
     return fig
 
 
-def ranked_bar(counts: pd.Series, unit: str = "produtores", height: int | None = None) -> go.Figure:
-    counts = counts.sort_values(ascending=True)
+def ranked_bar(
+    counts: pd.Series, unit: str = "produtores", height: int | None = None, category_order: list[str] | None = None
+) -> go.Figure:
+    if category_order:
+        # Ordem lógica da própria variável (ex: faixas de produção crescentes) em vez
+        # de por frequência — Plotly desenha a última posição da série no topo, então
+        # invertemos aqui pra "1) ..." ficar em cima e "5) ..." embaixo, lendo de cima
+        # pra baixo na ordem natural.
+        ordered = [c for c in category_order if c in counts.index]
+        counts = counts.reindex(ordered).dropna().iloc[::-1]
+    else:
+        counts = counts.sort_values(ascending=True)
     height = height or max(220, 42 * len(counts))
     fig = go.Figure(
         go.Bar(

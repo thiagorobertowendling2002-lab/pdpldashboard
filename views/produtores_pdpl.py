@@ -7,7 +7,7 @@ import streamlit as st
 import charts
 from association import compute_association_matrix, factor_ranking, strength_label
 from branding import render_color_legend, render_footer, render_header, render_kpi_row, render_section_header
-from data_loader import SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
+from data_loader import ESTRATO_ORDER, SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
 
 render_header("Produtores PDPL")
 
@@ -311,6 +311,13 @@ st.markdown("")
 
 
 # ---------------------------------------------------------------- Helpers de render
+# Variáveis categóricas com ordem lógica própria (não nominal) — viram barra ordenada
+# por essa ordem em vez de pizza/donut, mesmo tendo poucas categorias.
+_ORDINAL_CATEGORICAL_ORDERS = {
+    "Estrato de produção (l/dia)": ESTRATO_ORDER,
+}
+
+
 def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
     for i in range(0, len(cat_vars), 2):
         row = cat_vars[i : i + 2]
@@ -321,7 +328,11 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
                 continue
             with col, st.container(border=True):
                 st.markdown(f"**{var['label']}**")
-                fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
+                ordinal_order = _ORDINAL_CATEGORICAL_ORDERS.get(var["label"])
+                if ordinal_order:
+                    fig = charts.ranked_bar(counts, category_order=ordinal_order)
+                else:
+                    fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}")
 
 
