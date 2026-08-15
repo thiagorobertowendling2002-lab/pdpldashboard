@@ -134,16 +134,27 @@ with st.sidebar:
     question_options = build_question_options(catalog)
     sections_with_vars = [s for s in SECTION_ORDER if any(q["section"] == s for q in question_options)]
 
+    MAX_ADV_FILTERS = 4
+    if "n_adv_filters" not in st.session_state:
+        st.session_state["n_adv_filters"] = 1
+
     active_filters: list[tuple[dict, list[str], str]] = []
-    with st.expander("⚙️ Filtros avançados (combine até 4)"):
+    with st.expander("⚙️ Filtro avançado"):
         st.caption("Qualquer pergunta da pesquisa, ex: Crédito Rural → PRONAF → Sim")
-        for i in range(4):
-            st.markdown(f"**Filtro {i + 1}**")
+        n_visible = st.session_state["n_adv_filters"]
+        for i in range(n_visible):
+            if n_visible > 1:
+                st.markdown(f"**Filtro {i + 1}**")
             result = render_advanced_filter(question_options, sections_with_vars, f"f{i}")
             if result:
                 active_filters.append(result)
-            if i < 3:
+            if i < n_visible - 1:
                 st.markdown("---")
+
+        if n_visible < MAX_ADV_FILTERS:
+            if st.button("➕ Adicionar outro filtro", key="add_adv_filter"):
+                st.session_state["n_adv_filters"] += 1
+                st.rerun()
 
     if active_filters:
         combined_mask = pd.Series(True, index=raw.index)
