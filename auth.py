@@ -1,7 +1,7 @@
 import streamlit as st
 import bcrypt
 
-from branding import APP_NAME, COLOR_TEXT, inject_css, logo_data_uri, render_quote
+from branding import APP_NAME, COLOR_TEXT, inject_css, logo_data_uri, render_login_background, render_quote
 
 
 def _verify(username: str, password: str) -> dict | None:
@@ -20,6 +20,7 @@ def check_password() -> bool:
         return True
 
     inject_css()
+    render_login_background()
 
     _, col, _ = st.columns([1, 1.2, 1])
     with col:

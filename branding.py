@@ -101,6 +101,36 @@ def _largest_remainder_pct(raw_counts: list[int], total: int) -> list[int]:
     return floors
 
 
+def render_login_background() -> None:
+    """Fundo em gradiente radial (teal -> branco -> verde, cores da marca)
+    com um leve desfoque, só na tela de login — injetado à parte de
+    `inject_css()` (CSS compartilhado com o dashboard) pra não vazar pra lá."""
+    st.markdown(
+        """
+        <style>
+        /* Direto no background do .stApp (não um ::before com position:fixed
+           + z-index negativo) — essa combinação escapa do stacking context
+           do elemento e disputa posição lá no nível raiz da página, e nos
+           testes acabava cobrindo o conteúdo real por cima. Background puro
+           nunca tem esse problema: sempre pinta atrás do conteúdo, garantido
+           pela própria definição da propriedade. */
+        .stApp {
+            background-image: radial-gradient(circle at bottom, #2d788b 12%, #ffffff 43%, #2f6f42 97%);
+            background-attachment: fixed;
+            background-size: cover;
+        }
+        /* Antes do login não tem por que expor a navegação (nomes dos
+           dashboards sigilosos) pra quem ainda não autenticou — esconde a
+           sidebar inteira e o botão de recolher/expandir dela. */
+        [data-testid="stSidebar"], [data-testid="stSidebarCollapseButton"] {
+            display: none !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[str], icon_size: int = 24) -> None:
     """Pictograma tipo isotype no formato de porcentagem (sempre 100 ícones ao
     todo, 1 ícone = 1%, como os infográficos do IBGE) — cada categoria vira um
@@ -249,17 +279,16 @@ def inject_css() -> None:
             border-bottom: 4px solid {COLOR_PRIMARY};
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }}
-        /* Grade sutil desvanecendo do centro pra fora, só decorativa (atrás do
-           logo/título) — por isso fica num ::before isolado com z-index abaixo
+        /* Gradiente radial das cores da marca (teal -> branco -> verde), com
+           desfoque, desvanecendo do centro pra fora — só decorativo (atrás do
+           logo/título), por isso fica num ::before isolado com z-index abaixo
            do conteúdo, em vez de background direto no .brand-header. */
         .brand-header::before {{
             content: "";
             position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(to right, rgba(79,79,79,0.18) 2px, transparent 2px),
-                linear-gradient(to bottom, rgba(79,79,79,0.18) 1px, transparent 1px);
-            background-size: 14px 24px;
+            inset: -20%;
+            background-image: radial-gradient(circle at bottom, #2d788b 12%, #ffffff 43%, #2f6f42 97%);
+            filter: blur(40px);
             -webkit-mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 70%, transparent 110%);
             mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, #000 70%, transparent 110%);
             pointer-events: none;
