@@ -215,6 +215,11 @@ def inject_css() -> None:
             max-width: 99vw !important;
             padding-left: 1.2rem !important;
             padding-right: 1.2rem !important;
+            /* Container query em vez de media query pro grid de navegação
+               abaixo — o que importa é o espaço real disponível AQUI (que
+               muda com a sidebar aberta/fechada), não a largura da janela
+               toda, que é o que uma @media mede. */
+            container-type: inline-size;
         }}
         [data-baseweb="select"] div {{
             white-space: normal !important;
@@ -299,7 +304,7 @@ def inject_css() -> None:
             gap: 0.75rem;
             margin-bottom: 1.25rem;
         }}
-        @media (max-width: 900px) {{
+        @container (max-width: 900px) {{
             .kpi-row {{
                 grid-template-columns: repeat(2, 1fr);
             }}
@@ -330,9 +335,24 @@ def inject_css() -> None:
             white-space: normal !important;
             line-height: 1.2 !important;
         }}
-        @media (max-width: 900px) {{
+        /* 3 níveis em vez de 1 — uma @media(900px) sozinha não sabia que a
+           sidebar aberta já come 430-480px do espaço real, então em 900px de
+           janela com a sidebar expandida ainda tentava caber 4 colunas em
+           ~450px de conteúdo de verdade, quebrando palavra no meio
+           ("Infraestrutu-ra") sem hífen. @container mede o espaço real. */
+        @container (max-width: 1000px) {{
             .st-key-nav_sections div[role="radiogroup"] {{
                 grid-template-columns: repeat(4, 1fr) !important;
+            }}
+        }}
+        @container (max-width: 700px) {{
+            .st-key-nav_sections div[role="radiogroup"] {{
+                grid-template-columns: repeat(3, 1fr) !important;
+            }}
+        }}
+        @container (max-width: 480px) {{
+            .st-key-nav_sections div[role="radiogroup"] {{
+                grid-template-columns: repeat(2, 1fr) !important;
             }}
         }}
         /* Mesmo movimento de hover dos cards de KPI (leve elevação + sombra),
