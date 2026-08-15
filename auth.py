@@ -29,7 +29,7 @@ def check_password() -> bool:
             f"""
             <div style='text-align:center;'>
                 <img src="{logo_data_uri()}" width="220" alt="logo">
-                <h2 style='color:{COLOR_TEXT}; margin:12px 0 0 0;'>{APP_NAME}</h2>
+                <h2 style='color:{COLOR_TEXT}; margin:12px 0 0 67px;'>{APP_NAME}</h2>
                 <p style='color:{COLOR_TEXT}; opacity:0.65; margin-top:4px;'>Acesso aos Dashboards</p>
             </div>
             """,
