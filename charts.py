@@ -363,14 +363,19 @@ def parallel_categories(
 NEUTRAL_ASSOC_COLOR = "#7B6FD1"  # roxo — usado pra η/Cramér's V, que não têm sinal
 
 
-def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int | None = None) -> go.Figure:
+def factor_association_bar(
+    ranking: pd.DataFrame, labels: list[str], full_labels: list[str] | None = None, height: int | None = None
+) -> go.Figure:
     """Barras horizontais com a força/direção da associação de um fator com
     cada um dos outros já listados em `ranking` (mão única, other_key). Barra
     azul/vermelha (RdBu) quando o método tem sinal (Pearson/ponto-bisserial/
     Phi); roxo neutro quando não tem (η, Cramér's V) — pra não sugerir uma
-    direção que a métrica não define."""
+    direção que a métrica não define. `labels` já vem quebrado em até 2
+    linhas (não truncado) — `full_labels` (opcional) é o texto sem quebra,
+    só pro hover, pro caso raro de ainda sobrar texto cortado."""
     n = len(ranking)
-    height = height or max(280, 34 * n)
+    height = height or max(280, 46 * n)
+    full_labels = full_labels or labels
     plot_values = []
     colors = []
     text = []
@@ -393,7 +398,9 @@ def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int
             text.append(f"{v:.2f}")
         colors.append(_with_alpha(base, alpha))
 
-    customdata = np.stack([ranking["method"].values, ranking["p_value"].values, ranking["n"].values], axis=-1)
+    customdata = np.stack(
+        [ranking["method"].values, ranking["p_value"].values, ranking["n"].values, full_labels], axis=-1
+    )
     fig = go.Figure(
         go.Bar(
             x=plot_values,
@@ -404,13 +411,13 @@ def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int
             textposition="outside",
             customdata=customdata,
             hovertemplate=(
-                "%{y}<br>Coeficiente: %{x:.3f}<br>Método: %{customdata[0]}<br>"
+                "%{customdata[3]}<br>Coeficiente: %{x:.3f}<br>Método: %{customdata[0]}<br>"
                 "p = %{customdata[1]:.3f}<br>N = %{customdata[2]}<extra></extra>"
             ),
         )
     )
     fig.update_layout(
-        yaxis=dict(autorange="reversed", showgrid=False),
+        yaxis=dict(autorange="reversed", showgrid=False, automargin=True),
         xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=True, zerolinecolor="rgba(0,0,0,0.25)", zerolinewidth=1.5),
         showlegend=False,
     )

@@ -1,4 +1,5 @@
 import re
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -30,6 +31,14 @@ except FileNotFoundError:
     )
     render_footer()
     st.stop()
+
+
+def _wrap_label(text: str, width: int = 38, max_lines: int = 2) -> str:
+    """Quebra em até `max_lines` linhas (respeitando palavra inteira, via
+    `<br>` — Plotly interpreta como quebra de linha em ticks/labels), só
+    cortando com "…" se ainda sobrar texto depois disso."""
+    lines = textwrap.wrap(text, width=width, max_lines=max_lines, placeholder=" …")
+    return "<br>".join(lines) if lines else text
 
 
 def fmt_br(value, decimals: int = 1) -> str:
@@ -730,15 +739,17 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
 
     MAX_BARS = 25
     for_chart = filtered.head(MAX_BARS)
-    short_labels = []
-    for k in for_chart["other_key"]:
-        lbl = label_of.get(k, k)
-        short_labels.append(lbl if len(lbl) <= 42 else lbl[:41].rstrip() + "…")
+    full_labels = [label_of.get(k, k) for k in for_chart["other_key"]]
+    # Quebra em até 2 linhas em vez de cortar com "…" — um corte em 42
+    # caracteres deixava a maioria das perguntas (que são frases longas da
+    # pesquisa) ilegível mesmo passando o mouse, porque o hover também usava
+    # o texto já cortado. Só corta de verdade se ainda não couber em 2 linhas.
+    wrapped_labels = [_wrap_label(lbl, width=38, max_lines=2) for lbl in full_labels]
 
     with st.container(border=True):
         if len(filtered) > MAX_BARS:
             st.caption(f"Mostrando os {MAX_BARS} fatores mais fortes de {len(filtered)} que atendem os filtros — a tabela completa está abaixo.")
-        fig = charts.factor_association_bar(for_chart, short_labels)
+        fig = charts.factor_association_bar(for_chart, wrapped_labels, full_labels)
         st.plotly_chart(fig, use_container_width=True, key="assoc_bar")
 
     render_section_header("Tabela completa", "grid")
