@@ -237,15 +237,39 @@ def correlation_heatmap(corr: pd.DataFrame, height: int = 600) -> go.Figure:
     return fig
 
 
-def parallel_categories(df: pd.DataFrame, dim_cols: list[str], dim_labels: list[str], height: int = 520) -> go.Figure:
+_ORDINAL_ORDERS = [
+    ["Baixo", "Médio-baixo", "Médio-alto", "Alto"],
+    ["Baixo", "Alto"],
+]
+
+
+def _category_order(values: list[str]) -> list[str]:
+    """Ordena as categorias da 1ª dimensão de forma previsível: se forem faixas de
+    quartil (Baixo/Médio-baixo/Médio-alto/Alto), mantém essa ordem natural; senão,
+    ordena alfabeticamente, deixando "Não informado" por último."""
+    uniq = list(dict.fromkeys(values))
+    for order in _ORDINAL_ORDERS:
+        if set(uniq) <= set(order):
+            return [c for c in order if c in uniq]
+    rest = sorted(c for c in uniq if c != "Não informado")
+    return rest + (["Não informado"] if "Não informado" in uniq else [])
+
+
+def parallel_categories(
+    df: pd.DataFrame, dim_cols: list[str], dim_labels: list[str], height: int = 520
+) -> tuple[go.Figure, list[tuple[str, str]]]:
     """Diagrama de categorias paralelas: mostra como até ~5 variáveis (categóricas,
     de múltipla escolha ou numéricas já divididas em faixas) se relacionam entre si
-    através de faixas que fluem de uma variável pra outra."""
+    através de faixas que fluem de uma variável pra outra. As faixas são coloridas
+    pelas categorias da 1ª variável escolhida; devolve também essa legenda
+    (categoria, cor) em ordem organizada, pra ser desenhada ao lado do gráfico."""
     dimensions = [dict(values=df[col].astype(str), label=label) for col, label in zip(dim_cols, dim_labels)]
-    codes, _ = pd.factorize(df[dim_cols[0]].astype(str))
-    n_colors = max(codes.max() + 1, 1) if len(codes) else 1
-    ramp = teal_ramp(n_colors)
-    colorscale = [[i / max(n_colors - 1, 1), ramp[i]] for i in range(n_colors)]
+    first_values = df[dim_cols[0]].astype(str).tolist()
+    order = _category_order(first_values)
+    ramp = teal_ramp(len(order))
+    color_of = dict(zip(order, ramp))
+    codes = [order.index(v) for v in first_values]
+    colorscale = [[i / max(len(order) - 1, 1), ramp[i]] for i in range(len(order))]
     fig = go.Figure(
         go.Parcats(
             dimensions=dimensions,
@@ -263,4 +287,5 @@ def parallel_categories(df: pd.DataFrame, dim_cols: list[str], dim_labels: list[
         paper_bgcolor="rgba(0,0,0,0)",
         font=dict(family=FONT, color=COLOR_TEXT, size=12),
     )
-    return fig
+    legend_items = [(cat, color_of[cat]) for cat in order]
+    return fig, legend_items

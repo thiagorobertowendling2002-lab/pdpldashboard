@@ -52,8 +52,13 @@ def inject_css() -> None:
             text-overflow: unset !important;
             font-size: 0.82rem !important;
         }}
-        [data-baseweb="select"] {{
-            min-height: 38px;
+        /* O controle do select é flex com altura fixa por padrão, então texto
+           selecionado que quebra em várias linhas fica sobreposto ao próximo
+           elemento em vez de empurrá-lo — forçamos altura automática em toda
+           a cadeia de wrappers internos pra crescer junto com o texto. */
+        [data-baseweb="select"], [data-baseweb="select"] > div, [data-baseweb="select"] > div > div {{
+            height: auto !important;
+            min-height: 38px !important;
         }}
         ul[data-testid="stSelectboxVirtualDropdown"] li div {{
             white-space: normal !important;
@@ -159,6 +164,55 @@ def inject_css() -> None:
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }}
 
+        /* Filtro avançado como painel lateral deslizante (evita o corte de texto
+           que acontecia dentro da sidebar estreita) */
+        div[data-testid="stDialog"] > div {{
+            justify-content: flex-start !important;
+        }}
+        div[data-testid="stDialog"] [role="dialog"] {{
+            width: 560px !important;
+            max-width: 94vw !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            border-radius: 0 18px 18px 0 !important;
+            box-shadow: 8px 0 32px rgba(0,0,0,0.22);
+            animation: pdplDrawerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+        }}
+        @keyframes pdplDrawerIn {{
+            from {{ transform: translateX(-100%); opacity: 0.5; }}
+            to   {{ transform: translateX(0); opacity: 1; }}
+        }}
+
+        /* Legenda de cores customizada (ex: gráfico de categorias paralelas) */
+        .legend-row {{
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem 1.1rem;
+            padding: 0.3rem 0 0.6rem 0;
+            font-size: 0.82rem;
+            color: {COLOR_TEXT};
+        }}
+        .legend-title {{
+            font-weight: 600;
+            opacity: 0.75;
+            margin-right: 0.2rem;
+        }}
+        .legend-swatch {{
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+        }}
+        .legend-dot {{
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }}
+
         /* Abas com destaque mais forte na ativa */
         button[data-baseweb="tab"] {{
             font-weight: 600;
@@ -188,6 +242,17 @@ def render_kpi_row(items: list[tuple[str, str]] | list[tuple[str, str, str]]) ->
         icon_html = f'<div class="kpi-icon">{icon}</div>' if icon else ""
         cards.append(f'<div class="kpi-card">{icon_html}<p class="kpi-label">{label}</p><p class="kpi-value">{value}</p></div>')
     st.markdown(f'<div class="kpi-row">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+
+def render_color_legend(items: list[tuple[str, str]], title: str = "") -> None:
+    """items: lista de (categoria, cor em hex). Usada onde o Plotly não dá pra
+    desenhar uma legenda discreta nativa (ex: linha colorida do Parcats)."""
+    title_html = f'<span class="legend-title">{title}</span>' if title else ""
+    swatches = "".join(
+        f'<span class="legend-swatch"><span class="legend-dot" style="background:{color}"></span>{label}</span>'
+        for label, color in items
+    )
+    st.markdown(f'<div class="legend-row">{title_html}{swatches}</div>', unsafe_allow_html=True)
 
 
 def render_section_header(text: str, icon: str = "") -> None:
