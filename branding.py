@@ -153,11 +153,20 @@ def inject_css() -> None:
         .brand-header .accent {{
             color: {COLOR_SECONDARY};
         }}
+        /* 5 colunas fixas (10 cards = 2 linhas parelhas) em vez de auto-fit —
+           auto-fit recalculava quantas cabiam pela largura disponível, o que
+           dava linhas desiguais (6+4, 7+3...) e mudava toda vez que a sidebar
+           era recolhida/expandida. */
         .kpi-row {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(5, 1fr);
             gap: 0.75rem;
             margin-bottom: 1.25rem;
+        }}
+        @media (max-width: 900px) {{
+            .kpi-row {{
+                grid-template-columns: repeat(2, 1fr);
+            }}
         }}
         .kpi-card {{
             background-color: white;
