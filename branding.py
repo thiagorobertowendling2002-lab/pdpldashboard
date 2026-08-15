@@ -100,24 +100,56 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
     """Pictograma tipo isotype no formato de porcentagem (sempre 100 ícones ao
     todo, 1 ícone = 1%, como os infográficos do IBGE) — cada categoria vira um
     bloco de vaquinhas coloridas na ordem lógica da variável (não por
-    frequência), seguido de legenda com rótulo/contagem/porcentagem por cor."""
+    frequência), com os rótulos de porcentagem posicionados ao redor do
+    pictograma (alternando esquerda/direita), alinhados na altura do bloco de
+    cor correspondente — igual ao layout de referência do IBGE, em vez de uma
+    legenda solta embaixo."""
     ordered = [(cat, int(counts[cat])) for cat in category_order if cat in counts.index and counts[cat] > 0]
     total = sum(n for _, n in ordered)
     if total == 0:
         return
     pcts = _largest_remainder_pct([n for _, n in ordered], total)
+
+    per_row = 10
+    gap = 3
+    cell = icon_size + gap
+    grid_w = cell * per_row - gap
+    grid_h = cell * ((100 + per_row - 1) // per_row) - gap
+    label_w = 132
+
     icons_html = "".join(_pictogram_cow_svg(color, icon_size) * pct for pct, color in zip(pcts, colors))
-    col_width = icon_size + 4
+    grid_html = (
+        f'<div style="display:grid;grid-template-columns:repeat({per_row}, {icon_size}px);gap:{gap}px;">'
+        f"{icons_html}</div>"
+    )
+
+    left_labels, right_labels = [], []
+    cursor = 0
+    for idx, ((cat, n), pct, color) in enumerate(zip(ordered, pcts, colors)):
+        mid_row = (cursor + pct / 2) / per_row
+        cursor += pct
+        top_px = max(0, mid_row * cell - 15)
+        clean_label = re.sub(r"^\d+\)\s*", "", cat)
+        is_left = idx % 2 == 0
+        align_style = "right:0;text-align:right;" if is_left else "left:0;text-align:left;"
+        label_html = (
+            f'<div style="position:absolute;top:{top_px:.0f}px;{align_style}width:{label_w}px;font-size:0.76rem;'
+            f'line-height:1.2;color:{COLOR_TEXT};">'
+            f'<span style="font-weight:700;font-size:1.05rem;color:{color};">{pct}%</span><br>{clean_label}'
+            "</div>"
+        )
+        (left_labels if is_left else right_labels).append(label_html)
+
+    left_html = f'<div style="position:relative;">{"".join(left_labels)}</div>'
+    right_html = f'<div style="position:relative;">{"".join(right_labels)}</div>'
+
     st.markdown(
-        f'<div style="display:grid;grid-template-columns:repeat(10, {col_width}px);gap:3px;'
-        f'margin:0.3rem 0 0.7rem 0;">{icons_html}</div>',
+        f'<div style="display:grid;grid-template-columns:{label_w}px {grid_w}px {label_w}px;'
+        f'column-gap:16px;align-items:start;width:fit-content;margin:0.4rem auto 0.9rem auto;'
+        f'min-height:{grid_h}px;">'
+        f"{left_html}{grid_html}{right_html}</div>",
         unsafe_allow_html=True,
     )
-    legend_items = []
-    for (cat, n), pct, color in zip(ordered, pcts, colors):
-        clean_label = re.sub(r"^\d+\)\s*", "", cat)
-        legend_items.append((f"{clean_label} — {n} ({pct}%)", color))
-    render_color_legend(legend_items)
 
 
 def _logo_b64() -> str:
