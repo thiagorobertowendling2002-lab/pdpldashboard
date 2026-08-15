@@ -417,11 +417,12 @@ def inject_css() -> None:
            que acontecia dentro da sidebar estreita) */
         div[data-testid="stDialog"] > div {{
             justify-content: flex-start !important;
-            /* Fundo do resto da tela (fora do painel de 560px) — força um véu
-               escuro translúcido explícito em vez de confiar no tom que o tema
-               calcula sozinho, que em telas largas pode ficar claro demais e
-               parecer "página em branco" atrás do painel. */
-            background: rgba(10, 30, 35, 0.6) !important;
+            /* Fundo do resto da tela (fora do painel de 560px, em qualquer
+               diálogo — Filtro avançado, Explorador, Comparação, Correlações,
+               que compartilham esse mesmo CSS): cor sólida opaca, sem
+               transparência — nada do texto do dashboard atrás aparece, então
+               não tem confusão visual com o conteúdo do painel branco. */
+            background: rgb(10, 30, 35) !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
             position: relative !important;
