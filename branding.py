@@ -335,6 +335,26 @@ def inject_css() -> None:
                 grid-template-columns: repeat(4, 1fr) !important;
             }}
         }}
+        /* Mesmo movimento de hover dos cards de KPI (leve elevação + sombra),
+           só a transição — sem tint de cor nem trocar a cor que os botões já
+           têm (branco / teal na aba ativa continuam do jeito que estão). */
+        .st-key-nav_sections div[role="radiogroup"] button,
+        .st-key-nav_tools div[role="radiogroup"] button {{
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }}
+        @media (hover: hover) and (pointer: fine) {{
+            .st-key-nav_sections div[role="radiogroup"] button:hover,
+            .st-key-nav_tools div[role="radiogroup"] button:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 6px 14px -6px rgba(15,60,70,0.25);
+            }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .st-key-nav_sections div[role="radiogroup"] button:hover,
+            .st-key-nav_tools div[role="radiogroup"] button:hover {{
+                transform: none;
+            }}
+        }}
         /* Cada card define sua cor de destaque via --accent (uma por card, ver
            _KPI_ACCENT_COLORS em render_kpi_row) — usada no tint estático, no
            glow de hover, na linha de acento e no badge do ícone, tudo com
