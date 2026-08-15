@@ -557,17 +557,41 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
     if "n_compare_vars" not in st.session_state:
         st.session_state["n_compare_vars"] = MIN_COMPARE_VARS
 
+    @st.dialog("Escolher variável", width="large", on_dismiss="rerun")
+    def variable_picker_dialog(instance_key: str, slot_num: int):
+        # Diálogo largo só pra não cortar o texto das perguntas — a mesma ideia do
+        # filtro avançado: abre grande pra escolher com calma, fecha e volta ao
+        # normal assim que a variável é confirmada.
+        st.caption(f"Variável {slot_num} — Seção → Pergunta → Opção (se for de múltipla escolha)")
+        result = render_variable_picker(compare_question_options, compare_sections, instance_key)
+        st.markdown("")
+        if st.button(
+            "Aplicar", icon=":material/check:", key=f"apply_var_{instance_key}", type="primary", use_container_width=True
+        ):
+            # Guarda a escolha numa chave própria (não a do widget): o Streamlit
+            # limpa o estado dos widgets do diálogo quando ele é reaberto pra outro
+            # slot, então ler direto de cmp_section_* depois de fechado não é
+            # confiável — só essa cópia sobrevive de forma garantida.
+            st.session_state[f"compare_picked_{instance_key}"] = result
+            st.rerun()
+
     with st.container(border=True):
-        st.caption("Escolha de 2 a 5 variáveis: Seção → Pergunta → (Opção, se for múltipla escolha).")
+        st.caption("Escolha de 2 a 5 variáveis pra comparar.")
         n_visible = st.session_state["n_compare_vars"]
         picked: list[dict] = []
         cols = st.columns(n_visible)
         for i in range(n_visible):
+            instance_key = f"c{i}"
             with cols[i]:
                 st.markdown(f"**Variável {i + 1}**")
-                result = render_variable_picker(compare_question_options, compare_sections, f"c{i}")
-                if result:
-                    picked.append(result)
+                current = st.session_state.get(f"compare_picked_{instance_key}")
+                st.caption(current["label"] if current else "Nenhuma escolhida")
+                if current:
+                    picked.append(current)
+                btn_label = "Trocar" if current else "Escolher"
+                btn_icon = ":material/edit:" if current else ":material/add_circle:"
+                if st.button(btn_label, icon=btn_icon, key=f"open_var_{instance_key}", use_container_width=True):
+                    variable_picker_dialog(instance_key, i + 1)
 
         if n_visible < MAX_COMPARE_VARS and st.button(
             "Adicionar variável", icon=":material/add:", key="add_compare_var"
