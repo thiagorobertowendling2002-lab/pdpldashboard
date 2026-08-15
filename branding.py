@@ -83,27 +83,38 @@ def _pictogram_cow_svg(color: str, size: int) -> str:
     )
 
 
-def render_pictogram(
-    counts: pd.Series, category_order: list[str], colors: list[str], icon_size: int = 18, per_row: int = 10
-) -> None:
-    """Pictograma tipo isotype (ícone repetido, 1 por unidade da amostra) pra
-    variáveis ordinais com poucas categorias — cada categoria vira um bloco de
-    vaquinhas coloridas na ordem lógica da variável (não por frequência),
-    seguido de legenda com rótulo/contagem/porcentagem por cor."""
+def _largest_remainder_pct(raw_counts: list[int], total: int) -> list[int]:
+    """Converte contagens em porcentagens inteiras que somam exatamente 100
+    (método dos maiores restos) — pra sempre desenhar 100 ícones no total,
+    independente de N variar conforme os filtros aplicados."""
+    exact = [c * 100 / total for c in raw_counts]
+    floors = [int(x) for x in exact]
+    leftover = 100 - sum(floors)
+    order = sorted(range(len(raw_counts)), key=lambda i: exact[i] - floors[i], reverse=True)
+    for i in order[:leftover]:
+        floors[i] += 1
+    return floors
+
+
+def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[str], icon_size: int = 24) -> None:
+    """Pictograma tipo isotype no formato de porcentagem (sempre 100 ícones ao
+    todo, 1 ícone = 1%, como os infográficos do IBGE) — cada categoria vira um
+    bloco de vaquinhas coloridas na ordem lógica da variável (não por
+    frequência), seguido de legenda com rótulo/contagem/porcentagem por cor."""
     ordered = [(cat, int(counts[cat])) for cat in category_order if cat in counts.index and counts[cat] > 0]
     total = sum(n for _, n in ordered)
     if total == 0:
         return
-    icons_html = "".join(_pictogram_cow_svg(color, icon_size) * n for (_, n), color in zip(ordered, colors))
+    pcts = _largest_remainder_pct([n for _, n in ordered], total)
+    icons_html = "".join(_pictogram_cow_svg(color, icon_size) * pct for pct, color in zip(pcts, colors))
     col_width = icon_size + 4
     st.markdown(
-        f'<div style="display:grid;grid-template-columns:repeat({per_row}, {col_width}px);gap:4px;'
+        f'<div style="display:grid;grid-template-columns:repeat(10, {col_width}px);gap:3px;'
         f'margin:0.3rem 0 0.7rem 0;">{icons_html}</div>',
         unsafe_allow_html=True,
     )
     legend_items = []
-    for (cat, n), color in zip(ordered, colors):
-        pct = round(100 * n / total)
+    for (cat, n), pct, color in zip(ordered, pcts, colors):
         clean_label = re.sub(r"^\d+\)\s*", "", cat)
         legend_items.append((f"{clean_label} — {n} ({pct}%)", color))
     render_color_legend(legend_items)

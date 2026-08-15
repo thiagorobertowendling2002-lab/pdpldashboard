@@ -317,11 +317,11 @@ _ORDINAL_CATEGORICAL_ORDERS = {
     "Estrato de produção (l/dia)": ESTRATO_ORDER,
 }
 
-# Dessas, quais viram pictograma (1 vaquinha por produtor, tipo isotype do
-# IBGE) em vez de barra — rampa sequencial clara->escura reforça que é uma
-# progressão (estrato de produção crescente), não categorias soltas.
+# Dessas, quais viram pictograma (100 vaquinhas = 100%, tipo isotype do IBGE)
+# em vez de barra — cores com matizes bem distintos entre si (não uma rampa de
+# um só tom) pra cada faixa ser reconhecida de relance, como no exemplo do IBGE.
 _PICTOGRAM_COLORS = {
-    "Estrato de produção (l/dia)": ["#C8E6EA", "#8FC9D3", "#1C9CB4", "#146B7C", "#0B3E47"],
+    "Estrato de produção (l/dia)": ["#1C9CB4", "#008448", "#C99A2E", "#6C5CE0", "#B84C3C"],
 }
 
 
