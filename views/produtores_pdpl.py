@@ -202,6 +202,11 @@ with st.sidebar:
 
     @st.dialog(":material/tune: Filtro avançado", width="large", on_dismiss="rerun")
     def advanced_filter_dialog():
+        # Streamlit re-executa essa função a cada rerun enquanto o diálogo
+        # continua aberto (não só quando o botão que abre é clicado) — serve
+        # de marcador pra detectar embaixo quando ele foi fechado, seja pelo
+        # X, Esc, clique fora ou o botão "Aplicar e fechar".
+        st.session_state["_adv_filter_dialog_open_this_run"] = True
         st.caption("Qualquer pergunta da pesquisa, ex: Crédito Rural → PRONAF → Sim")
         n_visible = st.session_state["n_adv_filters"]
         for i in range(n_visible):
@@ -240,11 +245,18 @@ with st.sidebar:
                 type="primary",
                 use_container_width=True,
             ):
-                st.session_state["_collapse_sidebar"] = True
                 st.rerun()
 
     if st.button("Filtro avançado", icon=":material/tune:", key="open_adv_filter_dialog", use_container_width=True):
         advanced_filter_dialog()
+
+    # Detecta o diálogo fechando (de qualquer jeito: X, Esc, clique fora ou
+    # "Aplicar e fechar") comparando se ele estava aberto no run anterior e
+    # não está mais neste — dispara o recolhimento automático da sidebar.
+    _adv_dialog_open_now = st.session_state.pop("_adv_filter_dialog_open_this_run", False)
+    if st.session_state.get("_adv_filter_dialog_was_open", False) and not _adv_dialog_open_now:
+        st.session_state["_collapse_sidebar"] = True
+    st.session_state["_adv_filter_dialog_was_open"] = _adv_dialog_open_now
 
     active_filters: list[tuple[dict, list[str], str]] = []
     for i in range(st.session_state["n_adv_filters"]):

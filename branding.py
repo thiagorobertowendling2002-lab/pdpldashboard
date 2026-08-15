@@ -432,6 +432,8 @@ def inject_css() -> None:
             max-height: 100vh !important;
             margin: 0 !important;
             border-radius: 0 18px 18px 0 !important;
+            background-color: white !important;
+            opacity: 1 !important;
             box-shadow: 8px 0 32px rgba(0,0,0,0.22);
             animation: pdplDrawerIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
             /* Com vários filtros o conteúdo pode passar da altura da tela — sem
@@ -439,9 +441,13 @@ def inject_css() -> None:
                até ele. */
             overflow-y: auto !important;
         }}
+        /* Só desliza — sem dip de opacidade durante a animação. Um opacity <
+           1 no meio da transição deixava o painel branco temporariamente
+           translúcido, e a sidebar (que fica atrás, na mesma região da tela)
+           bleedava através dele nesse instante. */
         @keyframes pdplDrawerIn {{
-            from {{ transform: translateX(-100%); opacity: 0.5; }}
-            to   {{ transform: translateX(0); opacity: 1; }}
+            from {{ transform: translateX(-100%); }}
+            to   {{ transform: translateX(0); }}
         }}
 
         /* Legenda de cores customizada (ex: gráfico de categorias paralelas) */
