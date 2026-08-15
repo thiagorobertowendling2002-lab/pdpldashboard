@@ -6,7 +6,7 @@ import streamlit as st
 
 import charts
 from association import compute_association_matrix, factor_ranking, strength_label
-from branding import render_color_legend, render_footer, render_header, render_kpi_row, render_section_header
+from branding import render_color_legend, render_footer, render_header, render_kpi_row, render_pictogram, render_section_header
 from data_loader import ESTRATO_ORDER, SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
 
 render_header("Produtores PDPL")
@@ -317,6 +317,13 @@ _ORDINAL_CATEGORICAL_ORDERS = {
     "Estrato de produção (l/dia)": ESTRATO_ORDER,
 }
 
+# Dessas, quais viram pictograma (1 vaquinha por produtor, tipo isotype do
+# IBGE) em vez de barra — rampa sequencial clara->escura reforça que é uma
+# progressão (estrato de produção crescente), não categorias soltas.
+_PICTOGRAM_COLORS = {
+    "Estrato de produção (l/dia)": ["#C8E6EA", "#8FC9D3", "#1C9CB4", "#146B7C", "#0B3E47"],
+}
+
 
 def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
     for i in range(0, len(cat_vars), 2):
@@ -328,6 +335,10 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
                 continue
             with col, st.container(border=True):
                 st.markdown(f"**{var['label']}**")
+                pictogram_colors = _PICTOGRAM_COLORS.get(var["label"])
+                if pictogram_colors:
+                    render_pictogram(counts, category_order=_ORDINAL_CATEGORICAL_ORDERS[var["label"]], colors=pictogram_colors)
+                    continue
                 ordinal_order = _ORDINAL_CATEGORICAL_ORDERS.get(var["label"])
                 if ordinal_order:
                     fig = charts.ranked_bar(counts, category_order=ordinal_order)

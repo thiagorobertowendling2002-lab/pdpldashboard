@@ -1,6 +1,8 @@
 import base64
+import re
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 from PIL import Image
 
@@ -63,6 +65,48 @@ def render_icon(name: str, size: int = 20) -> str:
         f'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         f"{inner}</svg>"
     )
+
+
+def _pictogram_cow_svg(color: str, size: int) -> str:
+    """Cabeça de vaca em silhueta sólida (preenchida, não outline como os ICONS
+    normais) — usada repetida em massa nos pictogramas tipo isotype, uma por
+    unidade da amostra."""
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" style="flex-shrink:0;">'
+        f'<ellipse cx="4.6" cy="9" rx="2.6" ry="3.6" transform="rotate(-28 4.6 9)" fill="{color}"/>'
+        f'<ellipse cx="19.4" cy="9" rx="2.6" ry="3.6" transform="rotate(28 19.4 9)" fill="{color}"/>'
+        f'<ellipse cx="12" cy="10.5" rx="6.4" ry="5.6" fill="{color}"/>'
+        f'<ellipse cx="12" cy="17" rx="7.6" ry="4.8" fill="{color}"/>'
+        f'<ellipse cx="9.3" cy="17.3" rx="1.05" ry="1.4" fill="white" opacity="0.88"/>'
+        f'<ellipse cx="14.7" cy="17.3" rx="1.05" ry="1.4" fill="white" opacity="0.88"/>'
+        "</svg>"
+    )
+
+
+def render_pictogram(
+    counts: pd.Series, category_order: list[str], colors: list[str], icon_size: int = 18, per_row: int = 10
+) -> None:
+    """Pictograma tipo isotype (ícone repetido, 1 por unidade da amostra) pra
+    variáveis ordinais com poucas categorias — cada categoria vira um bloco de
+    vaquinhas coloridas na ordem lógica da variável (não por frequência),
+    seguido de legenda com rótulo/contagem/porcentagem por cor."""
+    ordered = [(cat, int(counts[cat])) for cat in category_order if cat in counts.index and counts[cat] > 0]
+    total = sum(n for _, n in ordered)
+    if total == 0:
+        return
+    icons_html = "".join(_pictogram_cow_svg(color, icon_size) * n for (_, n), color in zip(ordered, colors))
+    col_width = icon_size + 4
+    st.markdown(
+        f'<div style="display:grid;grid-template-columns:repeat({per_row}, {col_width}px);gap:4px;'
+        f'margin:0.3rem 0 0.7rem 0;">{icons_html}</div>',
+        unsafe_allow_html=True,
+    )
+    legend_items = []
+    for (cat, n), color in zip(ordered, colors):
+        pct = round(100 * n / total)
+        clean_label = re.sub(r"^\d+\)\s*", "", cat)
+        legend_items.append((f"{clean_label} — {n} ({pct}%)", color))
+    render_color_legend(legend_items)
 
 
 def _logo_b64() -> str:
