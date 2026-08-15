@@ -12,6 +12,11 @@ HOMAGE_QUOTE = "O fácil já foi feito."
 HOMAGE_AUTHOR = "GOMES, Sebastião Teixeira."
 
 COLOR_PRIMARY = "#1C9CB4"  # teal do arco/logo PDPL
+# Mesmo matiz do COLOR_PRIMARY mas escurecido: texto branco sobre COLOR_PRIMARY
+# dá só 3.25:1 de contraste (abaixo do mínimo AA de 4.5:1) — usado só onde tem
+# texto/ícone branco por cima (fundo de botão, aba ativa), nunca como acento
+# decorativo puro (onde COLOR_PRIMARY original continua valendo).
+COLOR_PRIMARY_ACCESSIBLE = "#157B8F"
 COLOR_SECONDARY = "#008448"  # verde do logo PDPL
 COLOR_TEXT = "#181818"  # preto dos traços/texto do logo
 COLOR_BG = "#F5F8F9"
@@ -206,7 +211,7 @@ def inject_css() -> None:
             color: {COLOR_TEXT} !important;
         }}
         div.stButton > button, div[data-testid="stFormSubmitButton"] > button {{
-            background-color: {COLOR_PRIMARY};
+            background-color: {COLOR_PRIMARY_ACCESSIBLE};
             color: white;
             border: none;
             border-radius: 6px;
@@ -215,6 +220,13 @@ def inject_css() -> None:
         div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
             background-color: {COLOR_SECONDARY};
             color: white;
+        }}
+        /* Botão fechar (X) dos diálogos: ícone de 10px num alvo clicável de só
+           24x24 — abaixo do mínimo de 44x44 recomendado (WCAG 2.5.5). Aumenta
+           a área clicável via padding sem mudar o tamanho visual do ícone. */
+        div[data-testid="stDialog"] button[aria-label="Close"] {{
+            width: 44px !important;
+            height: 44px !important;
         }}
         .brand-header {{
             position: relative;
@@ -316,6 +328,13 @@ def inject_css() -> None:
         }}
         .kpi-card .kpi-label {{
             font-size: 0.78rem;
+            line-height: 1.25;
+            /* Reserva altura de 2 linhas sempre, mesmo quando o rótulo cabe em
+               1 — sem isso, a linha de cards com um rótulo mais longo (ex:
+               "Produtividade da mão de obra") ficava ~38% mais alta que a
+               outra linha, já que todo card na mesma linha do grid estica
+               junto (align-items:stretch) até o mais alto dela. */
+            min-height: 1.95rem;
             color: {COLOR_TEXT};
             opacity: 0.65;
             margin: 0 0 4px 0;
@@ -436,6 +455,20 @@ def inject_css() -> None:
             height: 12px;
             border-radius: 3px;
             flex-shrink: 0;
+        }}
+
+        /* Botão ativo do segmented_control (seções/ferramentas de navegação):
+           o padrão do tema (fundo teal bem diluído + texto teal) mede só
+           2.75:1 de contraste — abaixo do mínimo AA de 4.5:1 — e além disso é
+           uma pista visual fraca (fácil de não notar qual está selecionado
+           entre várias opções do mesmo tamanho). Fundo sólido resolve os dois
+           problemas de uma vez. */
+        button[data-testid="stBaseButton-segmented_controlActive"] {{
+            background-color: {COLOR_PRIMARY_ACCESSIBLE} !important;
+            color: white !important;
+        }}
+        button[data-testid="stBaseButton-segmented_controlActive"] span[data-testid="stIconMaterial"] {{
+            color: white !important;
         }}
 
         /* Abas com destaque mais forte na ativa */

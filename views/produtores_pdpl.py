@@ -257,7 +257,11 @@ with st.sidebar:
             combined_mask &= filter_mask(var, values)
             parts.append(f"{full_label} = {' ou '.join(values)}")
         n_match = int(combined_mask.sum())
-        st.success(f"**{n_match}** de {len(raw)} produtores atendem:\n\n" + "\n\n**E**\n\n".join(parts))
+        summary_text = f"**{n_match}** de {len(raw)} produtores atendem:\n\n" + "\n\n**E**\n\n".join(parts)
+        if n_match == 0:
+            st.warning(summary_text)
+        else:
+            st.success(summary_text)
 
 df = apply_filters(
     raw,
