@@ -419,10 +419,10 @@ def inject_css() -> None:
             justify-content: flex-start !important;
             /* Fundo do resto da tela (fora do painel de 560px, em qualquer
                diálogo — Filtro avançado, Explorador, Comparação, Correlações,
-               que compartilham esse mesmo CSS): cor sólida opaca, sem
-               transparência — nada do texto do dashboard atrás aparece, então
-               não tem confusão visual com o conteúdo do painel branco. */
-            background: rgb(10, 30, 35) !important;
+               que compartilham esse mesmo CSS): véu translúcido — dá pra ver
+               o dashboard por trás (dimmed), mas não dá pra ler o texto. O
+               painel branco em si (regra abaixo) continua 100% sólido. */
+            background: rgba(10, 30, 35, 0.6) !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
             position: relative !important;

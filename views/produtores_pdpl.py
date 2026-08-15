@@ -3,6 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 import charts
 from association import compute_association_matrix, factor_ranking, strength_label
@@ -239,6 +240,7 @@ with st.sidebar:
                 type="primary",
                 use_container_width=True,
             ):
+                st.session_state["_collapse_sidebar"] = True
                 st.rerun()
 
     if st.button("Filtro avançado", icon=":material/tune:", key="open_adv_filter_dialog", use_container_width=True):
@@ -262,6 +264,19 @@ with st.sidebar:
             st.warning(summary_text)
         else:
             st.success(summary_text)
+
+if st.session_state.pop("_collapse_sidebar", False):
+    # Sem API nativa do Streamlit pra recolher a sidebar por código — aciona
+    # o botão de recolher que o próprio Streamlit já renderiza, via JS. O
+    # componente roda num iframe, por isso precisa de `window.parent` pra
+    # alcançar o DOM da página de verdade.
+    components.html(
+        """<script>
+        const btn = window.parent.document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+        if (btn) { btn.click(); }
+        </script>""",
+        height=0,
+    )
 
 df = apply_filters(
     raw,
