@@ -342,3 +342,80 @@ def parallel_categories(
     )
     legend_items = [(cat, color_of[cat]) for cat in order]
     return fig, legend_items
+
+
+NEUTRAL_ASSOC_COLOR = "#7B6FD1"  # roxo — usado pra η/Cramér's V, que não têm sinal
+
+
+def factor_association_bar(ranking: pd.DataFrame, labels: list[str], height: int | None = None) -> go.Figure:
+    """Barras horizontais com a força/direção da associação de um fator com
+    cada um dos outros já listados em `ranking` (mão única, other_key). Barra
+    azul/vermelha (RdBu) quando o método tem sinal (Pearson/ponto-bisserial/
+    Phi); roxo neutro quando não tem (η, Cramér's V) — pra não sugerir uma
+    direção que a métrica não define."""
+    n = len(ranking)
+    height = height or max(280, 34 * n)
+    plot_values = []
+    colors = []
+    text = []
+    for _, row in ranking.iterrows():
+        signed = pd.notna(row["r"])
+        v = row["r"] if signed else row["value"]
+        plot_values.append(v)
+        if signed:
+            colors.append(COLOR_PRIMARY if v >= 0 else "#B2182B")
+            text.append(f"{v:+.2f}")
+        else:
+            colors.append(NEUTRAL_ASSOC_COLOR)
+            text.append(f"{v:.2f}")
+
+    customdata = np.stack([ranking["method"].values, ranking["p_value"].values, ranking["n"].values], axis=-1)
+    fig = go.Figure(
+        go.Bar(
+            x=plot_values,
+            y=labels,
+            orientation="h",
+            marker=dict(color=colors),
+            text=text,
+            textposition="outside",
+            customdata=customdata,
+            hovertemplate=(
+                "%{y}<br>Coeficiente: %{x:.3f}<br>Método: %{customdata[0]}<br>"
+                "p = %{customdata[1]:.3f}<br>N = %{customdata[2]}<extra></extra>"
+            ),
+        )
+    )
+    fig.update_layout(
+        yaxis=dict(autorange="reversed", showgrid=False),
+        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=True, zerolinecolor="rgba(0,0,0,0.25)", zerolinewidth=1.5),
+        showlegend=False,
+    )
+    return _base_layout(fig, height)
+
+
+def full_association_heatmap(matrix_wide: pd.DataFrame, height: int = 900) -> go.Figure:
+    """Heatmap completo de todos os fatores (magnitude 0-1, sem sinal — mistura
+    métodos diferentes, então mostrar sinal seria enganoso). Rolagem/zoom vêm
+    de graça do Plotly; nomes truncados com o completo disponível no hover."""
+    labels = list(matrix_wide.columns)
+    short_labels = [_truncate(str(c), max_len=22) for c in labels]
+    fig = go.Figure(
+        go.Heatmap(
+            z=matrix_wide.values,
+            x=short_labels,
+            y=short_labels,
+            customdata=[[f"{a} × {b}" for a in labels] for b in labels],
+            colorscale=[[0, "#F5F8F9"], [1, COLOR_PRIMARY]],
+            zmin=0,
+            zmax=1,
+            colorbar=dict(title="força"),
+            hovertemplate="%{customdata}<br>%{z:.2f}<extra></extra>",
+        )
+    )
+    fig = _base_layout(fig, height)
+    fig.update_layout(
+        xaxis=dict(tickangle=-45, automargin=True, tickfont=dict(size=9)),
+        yaxis=dict(autorange="reversed", automargin=True, tickfont=dict(size=9)),
+        margin=dict(t=16, b=160, l=200, r=16),
+    )
+    return fig

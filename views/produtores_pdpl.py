@@ -1,11 +1,13 @@
 import re
 
+import numpy as np
 import pandas as pd
 import streamlit as st
 
 import charts
+from association import compute_association_matrix, factor_ranking, strength_label
 from branding import render_color_legend, render_footer, render_header, render_kpi_row, render_section_header
-from data_loader import SECTION_ORDER, apply_filters, build_catalog, filter_options, load_raw
+from data_loader import SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
 
 render_header("Produtores PDPL")
 
@@ -26,39 +28,6 @@ def fmt_br(value, decimals: int = 1) -> str:
         return "—"
     text = f"{value:,.{decimals}f}"
     return text.replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def build_variable_options(cat: dict, include_numeric: bool = True) -> list[dict]:
-    """Lista achatada de TODAS as perguntas da pesquisa (categóricas, numéricas e
-    cada opção de perguntas de múltipla escolha), pra usar em seletores livres."""
-    items = []
-    for v in cat["categorical_vars"]:
-        items.append(
-            {"label": f"[{v['section']}] {v['label']}", "key": v["key"], "kind": "cat", "section": v["section"]}
-        )
-    if include_numeric:
-        for v in cat["numeric_vars"]:
-            items.append(
-                {
-                    "label": f"[{v['section']}] {v['label']}",
-                    "key": v["key"],
-                    "kind": "num",
-                    "unit": v["unit"],
-                    "section": v["section"],
-                }
-            )
-    for g in cat["multiselect_groups"].values():
-        for opt_label, col in g["items"]:
-            items.append(
-                {
-                    "label": f"[{g['section']}] {g['label']}: {opt_label}",
-                    "key": col,
-                    "kind": "flag",
-                    "section": g["section"],
-                }
-            )
-    items.sort(key=lambda v: v["label"])
-    return items
 
 
 def build_question_options(cat: dict, include_numeric: bool = False) -> list[dict]:
@@ -468,23 +437,60 @@ def render_visao_geral(catalog: dict) -> None:
 
 def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
     render_section_header("Compare quaisquer duas variáveis da pesquisa", "search")
+
+    explorer_questions = build_question_options(catalog, include_numeric=True)
+    explorer_sections = [s for s in SECTION_ORDER if any(q["section"] == s for q in explorer_questions)]
+
+    @st.dialog("Escolher variável", width="large", on_dismiss="rerun")
+    def explorer_var_dialog(instance_key: str, slot_label: str):
+        st.caption(f"{slot_label} — Seção → Pergunta → Opção (se for de múltipla escolha)")
+        result = render_variable_picker(explorer_questions, explorer_sections, instance_key)
+        st.markdown("")
+        if st.button(
+            "Aplicar", icon=":material/check:", key=f"apply_explorer_{instance_key}", type="primary", use_container_width=True
+        ):
+            st.session_state[f"explorer_picked_{instance_key}"] = result
+            st.rerun()
+
+    if "explorer_picked_ea" not in st.session_state:
+        default_a = next((q for q in explorer_questions if "Produção de leite média" in q["label"]), None)
+        st.session_state["explorer_picked_ea"] = (
+            {"label": default_a["label"], "key": default_a["key"], "kind": "num", "unit": default_a.get("unit", ""), "section": default_a["section"]}
+            if default_a
+            else None
+        )
+    if "explorer_picked_eb" not in st.session_state:
+        default_b = next((q for q in explorer_questions if q["label"] == "Tipologia da produção de leite"), None)
+        st.session_state["explorer_picked_eb"] = (
+            {"label": default_b["label"], "key": default_b["key"], "kind": "cat", "section": default_b["section"]}
+            if default_b
+            else None
+        )
+
     with st.container(border=True):
         st.caption(
-            "Inclui perguntas de resposta única, números **e cada opção de perguntas de múltipla escolha** "
-            "(ex: \"Se utilizou, quais as principais linhas de crédito?: PRONAF\") — digite pra buscar."
+            "Inclui perguntas de resposta única, números e cada opção de perguntas de múltipla escolha "
+            "(ex: \"Se utilizou, quais as principais linhas de crédito?: PRONAF\")."
         )
-        explorer_vars = build_variable_options(catalog, include_numeric=True)
-        labels = [v["label"] for v in explorer_vars]
-        by_label = {v["label"]: v for v in explorer_vars}
+        col_a, col_b = st.columns(2)
+        for col, instance_key, slot_label in [(col_a, "ea", "Variável A"), (col_b, "eb", "Variável B")]:
+            with col:
+                st.markdown(f"**{slot_label}**")
+                current = st.session_state.get(f"explorer_picked_{instance_key}")
+                st.caption(current["label"] if current else "Nenhuma escolhida")
+                if st.button(
+                    "Trocar" if current else "Escolher",
+                    icon=":material/edit:" if current else ":material/add_circle:",
+                    key=f"open_explorer_{instance_key}",
+                    use_container_width=True,
+                ):
+                    explorer_var_dialog(instance_key, slot_label)
 
-        default_a = next((l for l in labels if "Produção de leite média" in l), labels[0])
-        default_b = next((l for l in labels if "Tipologia" in l), labels[1] if len(labels) > 1 else labels[0])
-
-        c1, c2 = st.columns(2)
-        var_a_label = c1.selectbox("Variável A", labels, index=labels.index(default_a))
-        var_b_label = c2.selectbox("Variável B", labels, index=labels.index(default_b))
-
-    var_a, var_b = by_label[var_a_label], by_label[var_b_label]
+    var_a = st.session_state.get("explorer_picked_ea")
+    var_b = st.session_state.get("explorer_picked_eb")
+    if not var_a or not var_b:
+        st.info("Escolha as duas variáveis acima pra ver a comparação.")
+        return
 
     # perguntas de múltipla escolha (flag) viram categóricas Sim/Não; NaN = "Não" respondeu essa opção
     df_pair = df.copy()
@@ -510,38 +516,204 @@ def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
         st.plotly_chart(fig, use_container_width=True, key="explorer_chart")
 
 
+@st.cache_data(show_spinner="Calculando associações entre os fatores…")
+def get_association_matrix(df: pd.DataFrame) -> pd.DataFrame:
+    """Matriz de associação entre todos os 200+ fatores, calculada uma vez por
+    combinação de filtros e reaproveitada — só recalcula quando os dados
+    filtrados mudam (não a cada interação do usuário nesta aba)."""
+    factors = build_factor_list()
+    return compute_association_matrix(df, factors)
+
+
+def render_factor_picker(factors: list[dict], sections: list[str], instance_key: str) -> dict | None:
+    section = st.selectbox("Seção", ["(nenhuma)"] + sections, key=f"af_section_{instance_key}")
+    if section == "(nenhuma)":
+        return None
+    section_factors = [f for f in factors if f["section"] == section]
+    labels = [f["label"] for f in section_factors]
+    by_label = dict(zip(labels, section_factors))
+    label = st.selectbox("Fator", ["(nenhum)"] + labels, key=f"af_factor_{instance_key}_{section}")
+    if label == "(nenhum)":
+        return None
+    return by_label[label]
+
+
 def render_correlacoes_tab(df: pd.DataFrame, catalog: dict) -> None:
-    render_section_header("Correlação entre variáveis numéricas", "link")
+    render_section_header("Correlação e Associação entre Fatores", "link")
     st.caption(
-        "Coeficiente de correlação linear de Pearson (r): quanto mais próximo de 1 (azul) ou -1 (vermelho), "
-        "mais forte a relação **linear** entre as duas variáveis — valores próximos de 0 não descartam uma "
-        "relação não linear. Correlação não implica causalidade. Mostrando só o triângulo inferior (a matriz "
-        "é espelhada: A×B tem o mesmo r que B×A) — passe o mouse pra ver o nome completo e o valor exato."
+        "Cada par de variáveis usa o método estatístico certo pro seu tipo — Pearson entre quantitativas, "
+        "ponto-bisserial entre uma binária (Sim/Não) e uma quantitativa, Phi entre duas binárias, razão de "
+        "correlação (η) entre uma categórica de 3+ níveis e uma quantitativa/binária, e Cramér's V entre "
+        "duas categóricas de 3+ níveis. **Correlação/associação não implica causalidade** — um coeficiente "
+        "alto não significa que um fator cause o outro, só que se movem juntos na amostra."
     )
-    threshold = st.slider(
-        "Mostrar apenas correlações com |r| maior ou igual a",
-        min_value=0.0,
-        max_value=0.9,
-        value=0.5,
-        step=0.05,
-        key="corr_threshold",
-        help="Correlações mais fracas que isso ficam em branco pra reduzir poluição visual.",
+
+    factors = build_factor_list()
+    sections = [s for s in SECTION_ORDER if any(f["section"] == s for f in factors)]
+    matrix = get_association_matrix(df)
+
+    mode = st.segmented_control(
+        "Modo de visualização",
+        [":material/leaderboard: Analisar um fator", ":material/grid_on: Ver matriz completa"],
+        default=":material/leaderboard: Analisar um fator",
+        label_visibility="collapsed",
+        key="assoc_mode",
     )
-    num_keys = [v["key"] for v in catalog["numeric_vars"]]
-    num_labels = {v["key"]: v["label"] for v in catalog["numeric_vars"]}
-    corr_df = df[num_keys].rename(columns=num_labels)
-    corr = corr_df.corr(numeric_only=True)
-    height = max(500, 24 * len(num_keys))
-    with st.container(border=True):
-        st.plotly_chart(
-            charts.correlation_heatmap(corr, height=height, threshold=threshold),
+
+    label_of = {f["key"]: f["label"] for f in factors}
+    section_of = {f["key"]: f["section"] for f in factors}
+
+    if mode == ":material/grid_on: Ver matriz completa":
+        render_association_matrix_view(matrix, factors, label_of)
+        return
+
+    @st.dialog("Selecionar fator", width="large", on_dismiss="rerun")
+    def factor_dialog():
+        st.caption("Escolha o fator principal — o sistema calcula a associação dele com todos os outros.")
+        result = render_factor_picker(factors, sections, "main")
+        st.markdown("")
+        if st.button("Aplicar", icon=":material/check:", key="apply_factor", type="primary", use_container_width=True):
+            st.session_state["assoc_picked_key"] = result["key"] if result else None
+            st.rerun()
+
+    picked_key = st.session_state.get("assoc_picked_key")
+    col_current, col_btn = st.columns([4, 1])
+    with col_current:
+        if picked_key:
+            st.markdown(f"**Fator selecionado:** {label_of.get(picked_key, picked_key)} · _{section_of.get(picked_key, '')}_")
+        else:
+            st.markdown("**Nenhum fator selecionado ainda.**")
+    with col_btn:
+        if st.button(
+            "Trocar fator" if picked_key else "Selecionar fator",
+            icon=":material/edit:" if picked_key else ":material/search:",
+            key="open_factor_dialog",
             use_container_width=True,
-            key="corr_heatmap",
+        ):
+            factor_dialog()
+
+    if not picked_key:
+        st.info("Selecione um fator acima pra ver com quais outros ele mais se associa.")
+        return
+
+    render_factor_analysis(matrix, picked_key, label_of, len(df))
+
+
+def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict, n_sample: int) -> None:
+    ranking_full = factor_ranking(matrix, picked_key)
+    ranking_full = ranking_full[ranking_full["other_key"].isin(label_of.keys())]
+
+    render_section_header(f"Fatores relacionados a {label_of.get(picked_key, picked_key)}", "trending-up")
+
+    with st.container(border=True):
+        c1, c2, c3 = st.columns(3)
+        show = c1.selectbox(
+            "Mostrar",
+            ["Todos", "Apenas positivas", "Apenas negativas", "Apenas fortes (|r| ≥ 0,60)", "Apenas significativas (p < 0,05)"],
+            key="assoc_show_filter",
         )
+        order_by = c2.selectbox(
+            "Ordenar por",
+            ["Maior associação", "Menor associação", "Menor p-valor"],
+            key="assoc_order_by",
+        )
+        min_threshold = c3.slider("Limiar mínimo |r|/V/η", 0.0, 1.0, 0.0, 0.05, key="assoc_min_threshold")
+
+    filtered = ranking_full.copy()
+    filtered = filtered[filtered["value"].fillna(0) >= min_threshold]
+    if show == "Apenas positivas":
+        filtered = filtered[filtered["sign"] > 0]
+    elif show == "Apenas negativas":
+        filtered = filtered[filtered["sign"] < 0]
+    elif show == "Apenas fortes (|r| ≥ 0,60)":
+        filtered = filtered[filtered["value"].fillna(0) >= 0.60]
+    elif show == "Apenas significativas (p < 0,05)":
+        filtered = filtered[filtered["p_value"].fillna(1) < 0.05]
+
+    if order_by == "Maior associação":
+        filtered = filtered.sort_values("value", ascending=False, na_position="last")
+    elif order_by == "Menor associação":
+        filtered = filtered.sort_values("value", ascending=True, na_position="last")
+    else:
+        filtered = filtered.sort_values("p_value", ascending=True, na_position="last")
+
+    if filtered.empty:
+        st.warning("Nenhum fator atende esses filtros.")
+        return
+
+    MAX_BARS = 25
+    for_chart = filtered.head(MAX_BARS)
+    short_labels = []
+    for k in for_chart["other_key"]:
+        lbl = label_of.get(k, k)
+        short_labels.append(lbl if len(lbl) <= 42 else lbl[:41].rstrip() + "…")
+
+    with st.container(border=True):
+        if len(filtered) > MAX_BARS:
+            st.caption(f"Mostrando os {MAX_BARS} fatores mais fortes de {len(filtered)} que atendem os filtros — a tabela completa está abaixo.")
+        fig = charts.factor_association_bar(for_chart, short_labels)
+        st.plotly_chart(fig, use_container_width=True, key="assoc_bar")
+
+    render_section_header("Tabela completa", "grid")
+    with st.container(border=True):
+        table = filtered.copy()
+        table["Fator"] = table["other_key"].map(label_of)
+        table["Coeficiente"] = table.apply(lambda r: r["r"] if pd.notna(r["r"]) else r["value"], axis=1)
+        table["Sinal"] = table["sign"].map({1: "Positivo", -1: "Negativo", 0: "—"})
+        table["Força"] = table["value"].apply(strength_label)
+        table["p-valor"] = table["p_value"]
+        table["N"] = table["n"]
+        table["Método"] = table["method"]
+        st.dataframe(
+            table[["Fator", "Coeficiente", "Sinal", "Força", "Método", "p-valor", "N"]],
+            use_container_width=True,
+            height=min(480, 40 + 35 * len(table)),
+            hide_index=True,
+            column_config={
+                "Coeficiente": st.column_config.NumberColumn(format="%.3f"),
+                "p-valor": st.column_config.NumberColumn(format="%.3f"),
+            },
+        )
+    st.caption(
+        "Escala de força (valor absoluto): 0,00–0,19 muito fraca · 0,20–0,39 fraca · 0,40–0,59 moderada · "
+        "0,60–0,79 forte · 0,80–1,00 muito forte. O sinal (+/-) só existe pra Pearson, ponto-bisserial e Phi — "
+        "η e Cramér's V medem só magnitude, sem direção."
+    )
+    if n_sample < 30:
         st.caption(
-            f":material/warning: Calculado sobre **{len(df)}** produtores — amostra pequena para fins "
-            "estatísticos: coeficientes de correlação são sensíveis a valores atípicos e podem mudar bastante "
-            "com poucas observações a mais ou a menos. Interprete como indicativo, não conclusivo."
+            f":material/warning: Calculado sobre **{n_sample}** produtores — amostra pequena: força e "
+            "significância (p-valor) devem ser lidas em conjunto, não isoladamente. Um coeficiente moderado "
+            "com p-valor alto (ex: p > 0,05) não é uma evidência estatística confiável."
+        )
+
+
+def render_association_matrix_view(matrix: pd.DataFrame, factors: list[dict], label_of: dict) -> None:
+    render_section_header("Matriz completa de associação", "grid")
+    st.caption(
+        "Magnitude da associação entre cada par de fatores (0 a 1, sem sinal — a matriz mistura métodos "
+        "diferentes, e nem todos têm direção). Role e amplie pra explorar; passe o mouse pra ver o par "
+        "completo e o valor exato."
+    )
+    keys = [f["key"] for f in factors]
+    n = len(keys)
+    idx = {k: i for i, k in enumerate(keys)}
+    values = np.eye(n)
+    valid = matrix.dropna(subset=["value"])
+    ia = valid["key_a"].map(idx)
+    ib = valid["key_b"].map(idx)
+    keep = ia.notna() & ib.notna()
+    ia = ia[keep].to_numpy(dtype=int)
+    ib = ib[keep].to_numpy(dtype=int)
+    vals = valid.loc[keep, "value"].to_numpy()
+    values[ia, ib] = vals
+    values[ib, ia] = vals
+    labels = [label_of.get(k, k) for k in keys]
+    wide = pd.DataFrame(values, index=labels, columns=labels)
+
+    with st.container(border=True):
+        height = max(700, 20 * n)
+        st.plotly_chart(
+            charts.full_association_heatmap(wide, height=height), use_container_width=True, key="assoc_full_heatmap"
         )
 
 

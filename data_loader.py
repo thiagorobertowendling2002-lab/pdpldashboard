@@ -178,6 +178,33 @@ def build_catalog():
     }
 
 
+@st.cache_data
+def build_factor_list() -> list[dict]:
+    """Lista unificada de "fatores" pra análise de associação: cada variável
+    numérica, cada categórica (binária ou com 3+ níveis) e cada item Sim/Não
+    de múltipla escolha vira um fator comparável com os demais. `vtype` é
+    "numeric", "binary" ou "categorical"."""
+    catalog = build_catalog()
+    raw = load_raw()
+    factors: list[dict] = []
+    for v in catalog["numeric_vars"]:
+        factors.append({"key": v["key"], "label": v["label"], "section": v["section"], "vtype": "numeric", "flag": False})
+    for v in catalog["categorical_vars"]:
+        nunique = raw[v["key"]].dropna().nunique()
+        vtype = "binary" if nunique == 2 else "categorical"
+        factors.append({"key": v["key"], "label": v["label"], "section": v["section"], "vtype": vtype, "flag": False})
+    for g in catalog["multiselect_groups"].values():
+        for opt_label, col in g["items"]:
+            # Colunas de item de múltipla escolha marcam "Sim" quando selecionado e
+            # ficam em branco (NaN) quando não — o branco é uma resposta "Não", não
+            # dado faltante de verdade. `flag=True` avisa o motor de associação pra
+            # tratar NaN como "Não" em vez de excluir a linha dessa comparação.
+            factors.append(
+                {"key": col, "label": f"{g['label']}: {opt_label}", "section": g["section"], "vtype": "binary", "flag": True}
+            )
+    return factors
+
+
 FILTER_COLUMNS = {
     "municipio": "Município",
     "tipologia": "TIPOLOGIA DA PRODUÇÃO DE LEITE",
