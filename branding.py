@@ -487,10 +487,18 @@ def inject_css() -> None:
         }}
 
         /* Cada gráfico ganha um "cartão" branco com sombra sutil */
-        div[data-testid="stVerticalBlockBorderWrapper"] {{
-            background-color: white;
-            border-radius: 12px !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        /* Mesma família visual dos .kpi-card (raio de canto e borda sutil) —
+           o padrão do Streamlit pra st.container(border=True) é uma borda
+           cinza bem mais forte (~20% opacidade) e canto reto (8px), destoando
+           dos cards de KPI ao lado (6-7% opacidade, 14px). Aplicado direto em
+           todo stVerticalBlock (não só nos com borda) porque é seguro: um
+           bloco sem borda tem border-width:0, então mudar só a cor/raio da
+           borda não desenha nada nele. Fica neutro (sem tint de cor) de
+           propósito: aqui dentro já tem gráfico colorido, cor a mais no
+           contorno competiria com o dado em vez de só emoldurar. */
+        [data-testid="stVerticalBlock"] {{
+            border-radius: 14px !important;
+            border-color: rgba(0,0,0,0.07) !important;
         }}
 
         /* Todo diálogo (Filtro avançado, Explorador, Comparação, Correlações)

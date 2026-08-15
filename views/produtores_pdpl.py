@@ -564,6 +564,9 @@ def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
     if not var_a or not var_b:
         st.info("Escolha as duas variáveis acima pra ver a comparação.")
         return
+    if var_a["key"] == var_b["key"]:
+        st.warning("Variável A e Variável B estão iguais — escolha variáveis diferentes pra comparar.")
+        return
 
     # perguntas de múltipla escolha (flag) viram categóricas Sim/Não; NaN = "Não" respondeu essa opção
     df_pair = df.copy()
