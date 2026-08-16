@@ -75,9 +75,13 @@ def render_icon(name: str, size: int = 20) -> str:
 def _pictogram_cow_svg(color: str, size: int) -> str:
     """Cabeça de vaca em silhueta sólida (preenchida, não outline como os ICONS
     normais) — usada repetida em massa nos pictogramas tipo isotype, uma por
-    unidade da amostra."""
+    unidade da amostra. width/height em 100% (não em px fixo) de propósito:
+    o tamanho de verdade vem da célula do grid que envolve cada ícone, então
+    o mesmo SVG serve pro grid de largura fixa (desktop) e pro de "1fr"
+    (celular) sem duplicar nada — só encolhe junto com a célula."""
     return (
-        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" style="flex-shrink:0;">'
+        f'<svg width="100%" height="100%" viewBox="0 0 24 24" '
+        f'style="display:block;max-width:{size}px;max-height:{size}px;">'
         f'<ellipse cx="4.6" cy="9" rx="2.6" ry="3.6" transform="rotate(-28 4.6 9)" fill="{color}"/>'
         f'<ellipse cx="19.4" cy="9" rx="2.6" ry="3.6" transform="rotate(28 19.4 9)" fill="{color}"/>'
         f'<ellipse cx="12" cy="10.5" rx="6.4" ry="5.6" fill="{color}"/>'
@@ -177,12 +181,41 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
 
     left_html = f'<div style="position:relative;">{"".join(left_labels)}</div>'
     right_html = f'<div style="position:relative;">{"".join(right_labels)}</div>'
+    around_width = label_w * 2 + grid_w + 32
+
+    # Legenda "ao redor" (estilo IBGE) precisa de ~560px de largura pra caber
+    # rótulo + grid + rótulo lado a lado — não cabe numa tela de celular (nem
+    # numa metade de card num tablet com a sidebar aberta). Gera as duas
+    # versões e deixa o @container escolher: célula larga mostra a de
+    # relance ao redor, célula estreita esconde ela e mostra a versão
+    # empilhada (grid centralizado + legenda simples embaixo) em vez de
+    # espremer/cortar a de relance.
+    stacked_legend_items = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;'
+        f'color:{COLOR_TEXT};white-space:nowrap;">'
+        f'<span style="width:10px;height:10px;border-radius:3px;background:{color};flex-shrink:0;"></span>'
+        f"{re.sub(r'^\d+\)\s*', '', cat)} — {pct}%</span>"
+        for (cat, n), pct, color in zip(ordered, pcts, colors)
+    )
 
     st.markdown(
-        f'<div style="display:grid;grid-template-columns:{label_w}px {grid_w}px {label_w}px;'
-        f'column-gap:16px;align-items:start;width:fit-content;margin:0.4rem auto 0.9rem auto;'
+        f'<div class="pictogram-wrap" style="container-type:inline-size;margin:0.4rem 0 0.9rem 0;">'
+        f'<div class="pictogram-around" style="display:grid;'
+        f"grid-template-columns:{label_w}px {grid_w}px {label_w}px;"
+        f'column-gap:16px;align-items:start;width:{around_width}px;max-width:100%;margin:0 auto;'
         f'min-height:{grid_h}px;">'
-        f"{left_html}{grid_html}{right_html}</div>",
+        f"{left_html}{grid_html}{right_html}</div>"
+        f'<div class="pictogram-stacked" style="display:none;flex-direction:column;align-items:center;gap:0.6rem;">'
+        f'<div style="display:grid;grid-template-columns:repeat({per_row}, 1fr);gap:{gap}px;'
+        f"max-width:{grid_w}px;width:100%;\">{icons_html}</div>"
+        f'<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.3rem 0.7rem;">'
+        f"{stacked_legend_items}</div></div></div>"
+        f"<style>"
+        f"@container (max-width: {around_width - 1}px) {{"
+        f" .pictogram-around {{ display: none !important; }}"
+        f" .pictogram-stacked {{ display: flex !important; }}"
+        f"}}"
+        f"</style>",
         unsafe_allow_html=True,
     )
 
@@ -233,7 +266,7 @@ def inject_css() -> None:
            a cadeia de wrappers internos pra crescer junto com o texto. */
         [data-baseweb="select"], [data-baseweb="select"] > div, [data-baseweb="select"] > div > div {{
             height: auto !important;
-            min-height: 38px !important;
+            min-height: 44px !important;
         }}
         ul[data-testid="stSelectboxVirtualDropdown"] li div {{
             white-space: normal !important;
@@ -251,6 +284,7 @@ def inject_css() -> None:
             border: none;
             border-radius: 6px;
             font-weight: 500;
+            min-height: 44px;
         }}
         div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
             background-color: {COLOR_SECONDARY};
@@ -323,10 +357,11 @@ def inject_css() -> None:
             grid-template-columns: repeat(6, 1fr) !important;
             gap: 0.4rem !important;
         }}
-        .st-key-nav_sections div[role="radiogroup"] button {{
+        .st-key-nav_sections div[role="radiogroup"] button,
+        .st-key-nav_tools div[role="radiogroup"] button {{
             width: 100% !important;
             height: auto !important;
-            min-height: 38px !important;
+            min-height: 44px !important;
         }}
         /* Largura da coluna corta os rótulos mais longos ("Tecnologia e
            Conforto Animal", "Manejo Reprodutivo e Sanitário") com reticências
@@ -453,8 +488,14 @@ def inject_css() -> None:
             color: {COLOR_TEXT};
             margin: 0;
             line-height: 1.2;
-            white-space: nowrap;
-            word-break: break-word;
+            /* nowrap+break-word juntos eram contraditórios (nowrap sempre
+               ganha, break-word nunca rodava) — em card estreito (tela de
+               celular, grid de 2 colunas) um valor comprido tipo "178.641
+               L/ha/ano" cortava sem aviso. Agora quebra por palavra normal, e
+               overflow-wrap só força quebra no meio se uma palavra sozinha
+               ainda não couber. */
+            white-space: normal;
+            overflow-wrap: break-word;
         }}
         .kpi-card .kpi-icon-badge {{
             position: relative;
@@ -468,6 +509,15 @@ def inject_css() -> None:
             align-items: center;
             justify-content: center;
             margin-bottom: 0.6rem;
+        }}
+
+        /* Toggle de recolher/expandir sidebar — sem tamanho próprio no
+           Streamlit nativo, fica bem abaixo de 44x44. É o botão mais usado no
+           fluxo mobile (abre/fecha a gaveta de filtros), então o alvo de
+           toque aqui importa mais que na maioria dos outros. */
+        [data-testid="stSidebarCollapseButton"] button {{
+            width: 44px !important;
+            height: 44px !important;
         }}
 
         /* Sidebar mais larga pra caber perguntas longas do filtro sem cortar —
@@ -486,6 +536,33 @@ def inject_css() -> None:
         [data-testid="stSidebar"][aria-expanded="false"] {{
             min-width: 0 !important;
             width: 0 !important;
+        }}
+        /* Abaixo de 900px (tablet retrato / celular) a sidebar vira um painel
+           sobreposto (position:fixed) em vez de espremer o conteúdo ao lado —
+           430-480px fixos não cabem nem perto de uma tela de celular (~375-
+           430px de largura TOTAL). Sem isso, a sidebar sozinha já era mais
+           larga que a tela inteira. Virando overlay, o conteúdo principal
+           ganha a largura toda por baixo, e a sidebar flutua por cima só
+           quando aberta — padrão nativo de app mobile. */
+        @media (max-width: 900px) {{
+            [data-testid="stSidebar"] {{
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                height: 100vh !important;
+                z-index: 999 !important;
+            }}
+            [data-testid="stSidebar"][aria-expanded="true"] {{
+                width: 85vw !important;
+                min-width: 0 !important;
+                max-width: 380px !important;
+                box-shadow: 8px 0 24px rgba(0,0,0,0.18);
+            }}
+            [data-testid="stSidebar"][aria-expanded="false"] {{
+                width: 0 !important;
+                min-width: 0 !important;
+            }}
         }}
 
         /* Cabeçalho de seção com barra de destaque */

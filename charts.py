@@ -6,6 +6,26 @@ from branding import COLOR_PRIMARY, COLOR_SECONDARY, COLOR_TEXT
 FONT = "Poppins, sans-serif"
 GRID_COLOR = "rgba(0,0,0,0.06)"
 
+# Passar em todo st.plotly_chart(..., config=PLOTLY_CONFIG). Tira os ícones
+# menos essenciais da modebar (select/lasso de área, escala automática,
+# comparação de hover) — ela já colidia com rótulo de dado em alguns cantos
+# em telas normais, e em tela de celular (menos espaço, alvo de toque
+# grosso do dedo) esse excesso de ícones piora. Mantém zoom/pan/reset/
+# download porque a matriz de correlação completa depende de zoom pra
+# explorar (instrução própria da tela é "role e amplie").
+PLOTLY_CONFIG = {
+    "displaylogo": False,
+    "modeBarButtonsToRemove": [
+        "select2d",
+        "lasso2d",
+        "autoScale2d",
+        "toggleSpikelines",
+        "hoverCompareCartesian",
+        "hoverClosestCartesian",
+    ],
+    "responsive": True,
+}
+
 
 def _with_alpha(hex_color: str, alpha: float) -> str:
     hex_color = hex_color.lstrip("#")

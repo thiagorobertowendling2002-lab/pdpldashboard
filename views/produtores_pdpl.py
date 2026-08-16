@@ -400,7 +400,7 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
                     fig = charts.ranked_bar(counts, category_order=ordinal_order)
                 else:
                     fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
-                st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}")
+                st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}", config=charts.PLOTLY_CONFIG)
 
 
 def render_numeric_groups(groups: list[dict], key_prefix: str) -> None:
@@ -412,7 +412,7 @@ def render_numeric_groups(groups: list[dict], key_prefix: str) -> None:
         with st.container(border=True):
             st.markdown(f"**{g['label']}**")
             fig = charts.composition_bar(items, is_percent=g["is_percent"])
-            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_grp_{i}")
+            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_grp_{i}", config=charts.PLOTLY_CONFIG)
 
 
 def render_multiselect_groups(groups: list[dict], key_prefix: str) -> None:
@@ -424,7 +424,7 @@ def render_multiselect_groups(groups: list[dict], key_prefix: str) -> None:
         with st.container(border=True):
             st.markdown(f"**{g['label']}**")
             fig = charts.ranked_bar(counts)
-            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_ms_{i}")
+            st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_ms_{i}", config=charts.PLOTLY_CONFIG)
 
 
 def render_numeric_grid(num_vars: list[dict], key_prefix: str) -> None:
@@ -438,7 +438,7 @@ def render_numeric_grid(num_vars: list[dict], key_prefix: str) -> None:
             with col, st.container(border=True):
                 st.markdown(f"**{var['label']}**")
                 fig = charts.histogram(series, var["unit"])
-                st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_num_{i}_{j}")
+                st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_num_{i}_{j}", config=charts.PLOTLY_CONFIG)
 
 
 def render_fun_facts(facts: list[dict]) -> None:
@@ -608,7 +608,7 @@ def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
         fig = charts.box_by_category(df_pair, cat_var["key"], num_var["key"], num_var.get("unit", ""))
     with st.container(border=True):
         st.markdown(f"**{chart_title}**")
-        st.plotly_chart(fig, use_container_width=True, key="explorer_chart")
+        st.plotly_chart(fig, use_container_width=True, key="explorer_chart", config=charts.PLOTLY_CONFIG)
 
 
 @st.cache_data(show_spinner="Calculando associações entre os fatores…")
@@ -749,7 +749,7 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
         if len(filtered) > MAX_BARS:
             st.caption(f"Mostrando os {MAX_BARS} fatores mais fortes de {len(filtered)} que atendem os filtros — a tabela completa está abaixo.")
         fig = charts.factor_association_bar(for_chart, wrapped_labels, full_labels)
-        st.plotly_chart(fig, use_container_width=True, key="assoc_bar")
+        st.plotly_chart(fig, use_container_width=True, key="assoc_bar", config=charts.PLOTLY_CONFIG)
 
     render_section_header("Tabela completa", "grid")
     with st.container(border=True):
@@ -822,7 +822,10 @@ def render_association_matrix_view(matrix: pd.DataFrame, factors: list[dict], la
     with st.container(border=True):
         height = max(700, 20 * n)
         st.plotly_chart(
-            charts.full_association_heatmap(wide, p_wide, height=height), use_container_width=True, key="assoc_full_heatmap"
+            charts.full_association_heatmap(wide, p_wide, height=height),
+            use_container_width=True,
+            key="assoc_full_heatmap",
+            config=charts.PLOTLY_CONFIG,
         )
 
 
@@ -917,7 +920,7 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
                 f"de **{dim_labels[0]}** (1ª variável escolhida)."
             )
             fig, legend_items = charts.parallel_categories(df_multi, dim_cols, dim_labels)
-            st.plotly_chart(fig, use_container_width=True, key="multi_parcats")
+            st.plotly_chart(fig, use_container_width=True, key="multi_parcats", config=charts.PLOTLY_CONFIG)
             render_color_legend(legend_items, title=f"{dim_labels[0]}:")
             if any(v["kind"] == "num" for v in chosen_vars):
                 st.caption(
