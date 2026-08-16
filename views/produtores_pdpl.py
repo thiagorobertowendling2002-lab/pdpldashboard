@@ -945,10 +945,72 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
             st.dataframe(table_df, use_container_width=True, height=min(400, 40 + 35 * len(table_df)))
 
 
+def _farm_label(i: int) -> str:
+    """Rótulo anônimo tipo coluna de planilha: A, B, ..., Z, AA, AB, ... —
+    não usamos o nome real do produtor (confidencial), só uma letra
+    sequencial (posição na amostra atual) + o município, que já basta pra
+    diferenciar as linhas do ranking sem identificar ninguém."""
+    i += 1
+    label = ""
+    while i > 0:
+        i, rem = divmod(i - 1, 26)
+        label = chr(65 + rem) + label
+    return label
+
+
+def render_ranking_tab(df: pd.DataFrame, catalog: dict) -> None:
+    render_section_header("Ranking de Produtores", "star")
+    st.caption(
+        "Cada produtor vira uma \"Fazenda\" com letra + município — sem nome real, por "
+        "confidencialidade —, comparados pelas 3 medidas de produtividade do dashboard."
+    )
+
+    ranking_df = pd.DataFrame(index=df.index)
+    ranking_df["Fazenda"] = [
+        f"Fazenda {_farm_label(i)} - {municipio} MG" for i, municipio in enumerate(df["Município"])
+    ]
+    ranking_df["Produtividade média (L/vaca/d)"] = df[PRODUTIVIDADE_COL]
+    ranking_df["Produtividade da terra (L/ha/ano)"] = (df[PRODUCAO_COL] * 365) / df[AREA_COL].replace(0, pd.NA)
+    ranking_df["Produtividade da mão de obra (L/trab/dia)"] = df[PRODUCAO_COL] / df[MDO_COL].replace(0, pd.NA)
+
+    metric_options = [
+        "Produtividade média (L/vaca/d)",
+        "Produtividade da terra (L/ha/ano)",
+        "Produtividade da mão de obra (L/trab/dia)",
+    ]
+    with st.container(border=True):
+        c1, c2 = st.columns([2, 1])
+        metric = c1.selectbox("Ordenar ranking por", metric_options, key="ranking_metric")
+        order = c2.selectbox("Ordem", ["Maior primeiro", "Menor primeiro"], key="ranking_order")
+
+    n_total = len(ranking_df)
+    ranking_df = ranking_df.dropna(subset=[metric]).sort_values(metric, ascending=(order == "Menor primeiro"))
+    ranking_df.insert(0, "Posição", range(1, len(ranking_df) + 1))
+
+    with st.container(border=True):
+        st.dataframe(
+            ranking_df,
+            use_container_width=True,
+            hide_index=True,
+            height=min(600, 46 + 38 * len(ranking_df)),
+            column_config={
+                "Produtividade média (L/vaca/d)": st.column_config.NumberColumn(format="%.1f"),
+                "Produtividade da terra (L/ha/ano)": st.column_config.NumberColumn(format="%.0f"),
+                "Produtividade da mão de obra (L/trab/dia)": st.column_config.NumberColumn(format="%.0f"),
+            },
+        )
+    if len(ranking_df) < n_total:
+        st.caption(
+            f":material/info: {n_total - len(ranking_df)} produtor(es) sem dado suficiente pra calcular "
+            f'"{metric}" foram omitidos do ranking.'
+        )
+
+
 TOOL_OPTIONS = [
     ":material/search: Explorador",
     ":material/filter_alt: Comparação e Filtragem entre Parâmetros",
     ":material/link: Correlações",
+    ":material/military_tech: Ranking",
 ]
 
 
@@ -1009,6 +1071,8 @@ def render_main_nav(df: pd.DataFrame, catalog: dict, section_tabs: list[str]) ->
         render_compare_tab(df, catalog)
     elif selected == TOOL_OPTIONS[2]:
         render_correlacoes_tab(df, catalog)
+    elif selected == TOOL_OPTIONS[3]:
+        render_ranking_tab(df, catalog)
 
 
 render_main_nav(df, catalog, section_tabs)
