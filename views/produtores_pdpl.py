@@ -16,6 +16,7 @@ from branding import (
     render_kpi_row,
     render_pictogram,
     render_section_header,
+    render_sr_only,
 )
 from data_loader import ESTRATO_ORDER, SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
 
@@ -400,6 +401,10 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
                     fig = charts.ranked_bar(counts, category_order=ordinal_order)
                 else:
                     fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
+                render_sr_only(
+                    f"Gráfico — {var['label']}. "
+                    + "; ".join(f"{cat}: {int(n)} produtores" for cat, n in counts.sort_values(ascending=False).items())
+                )
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}", config=charts.PLOTLY_CONFIG)
 
 
@@ -412,6 +417,11 @@ def render_numeric_groups(groups: list[dict], key_prefix: str) -> None:
         with st.container(border=True):
             st.markdown(f"**{g['label']}**")
             fig = charts.composition_bar(items, is_percent=g["is_percent"])
+            unit = "%" if g["is_percent"] else ""
+            render_sr_only(
+                f"Gráfico — composição de {g['label']}. "
+                + "; ".join(f"{lbl}: {fmt_br(v)}{unit}" for lbl, v in items)
+            )
             st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_grp_{i}", config=charts.PLOTLY_CONFIG)
 
 
@@ -424,6 +434,10 @@ def render_multiselect_groups(groups: list[dict], key_prefix: str) -> None:
         with st.container(border=True):
             st.markdown(f"**{g['label']}**")
             fig = charts.ranked_bar(counts)
+            render_sr_only(
+                f"Gráfico — {g['label']}. "
+                + "; ".join(f"{cat}: {int(n)} produtores" for cat, n in counts.sort_values(ascending=False).items())
+            )
             st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_ms_{i}", config=charts.PLOTLY_CONFIG)
 
 
@@ -438,6 +452,11 @@ def render_numeric_grid(num_vars: list[dict], key_prefix: str) -> None:
             with col, st.container(border=True):
                 st.markdown(f"**{var['label']}**")
                 fig = charts.histogram(series, var["unit"])
+                render_sr_only(
+                    f"Gráfico — distribuição de {var['label']}. Média {fmt_br(series.mean())} {var['unit']}, "
+                    f"mínimo {fmt_br(series.min())} {var['unit']}, máximo {fmt_br(series.max())} {var['unit']}, "
+                    f"{len(series)} produtores."
+                )
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_num_{i}_{j}", config=charts.PLOTLY_CONFIG)
 
 
@@ -608,6 +627,7 @@ def render_explorador_tab(df: pd.DataFrame, catalog: dict) -> None:
         fig = charts.box_by_category(df_pair, cat_var["key"], num_var["key"], num_var.get("unit", ""))
     with st.container(border=True):
         st.markdown(f"**{chart_title}**")
+        render_sr_only(f"Gráfico — {chart_title}.")
         st.plotly_chart(fig, use_container_width=True, key="explorer_chart", config=charts.PLOTLY_CONFIG)
 
 
@@ -749,6 +769,14 @@ def render_factor_analysis(matrix: pd.DataFrame, picked_key: str, label_of: dict
         if len(filtered) > MAX_BARS:
             st.caption(f"Mostrando os {MAX_BARS} fatores mais fortes de {len(filtered)} que atendem os filtros — a tabela completa está abaixo.")
         fig = charts.factor_association_bar(for_chart, wrapped_labels, full_labels)
+        top_desc = "; ".join(
+            f"{lbl}: {(row['r'] if pd.notna(row['r']) else row['value']):+.2f}"
+            for lbl, (_, row) in zip(full_labels[:3], for_chart.head(3).iterrows())
+        )
+        render_sr_only(
+            f"Gráfico de barras — fatores associados a {label_of.get(picked_key, picked_key)}, "
+            f"do mais forte pro mais fraco. Os 3 mais fortes: {top_desc}. Tabela completa logo abaixo."
+        )
         st.plotly_chart(fig, use_container_width=True, key="assoc_bar", config=charts.PLOTLY_CONFIG)
 
     render_section_header("Tabela completa", "grid")
@@ -821,6 +849,10 @@ def render_association_matrix_view(matrix: pd.DataFrame, factors: list[dict], la
 
     with st.container(border=True):
         height = max(700, 20 * n)
+        render_sr_only(
+            f"Mapa de calor com a força de associação entre {n} fatores da pesquisa, de 0 (fraca) a 1 (forte). "
+            'Use "Analisar um fator" acima pra ver os valores de um fator específico em formato de lista.'
+        )
         st.plotly_chart(
             charts.full_association_heatmap(wide, p_wide, height=height),
             use_container_width=True,
@@ -920,6 +952,10 @@ def render_compare_tab(df: pd.DataFrame, catalog: dict) -> None:
                 f"de **{dim_labels[0]}** (1ª variável escolhida)."
             )
             fig, legend_items = charts.parallel_categories(df_multi, dim_cols, dim_labels)
+            render_sr_only(
+                f"Diagrama de categorias paralelas comparando {', '.join(dim_labels)}. "
+                "Veja a tabela de produtores logo abaixo pros mesmos dados em formato de lista."
+            )
             st.plotly_chart(fig, use_container_width=True, key="multi_parcats", config=charts.PLOTLY_CONFIG)
             render_color_legend(legend_items, title=f"{dim_labels[0]}:")
             if any(v["kind"] == "num" for v in chosen_vars):
@@ -987,22 +1023,48 @@ def render_ranking_tab(df: pd.DataFrame, catalog: dict) -> None:
     ranking_df = ranking_df.dropna(subset=[metric]).sort_values(metric, ascending=(order == "Menor primeiro"))
     ranking_df.insert(0, "Posição", range(1, len(ranking_df) + 1))
 
+    # Um denominador (área ou mão de obra) perto de zero infla a razão pra um
+    # valor absurdo sem ser, tecnicamente, um erro de digitação óbvio no
+    # próprio campo mostrado — sinaliza em vez de esconder ou arredondar,
+    # mesmo espírito da blindagem estatística que Correlações já tem (fadeia
+    # o não-significativo, nunca oculta a linha).
+    median = ranking_df[metric].median()
+    is_outlier = pd.Series(False, index=ranking_df.index)
+    if pd.notna(median) and median != 0:
+        ratio = ranking_df[metric] / median
+        is_outlier = (ratio >= 5) | (ratio <= 0.2)
+    ranking_df["Atípico"] = is_outlier.map({True: "Sim", False: "Não"})
+
+    display_df = ranking_df.copy()
+    for col, decimals in [
+        ("Produtividade média (L/vaca/d)", 1),
+        ("Produtividade da terra (L/ha/ano)", 0),
+        ("Produtividade da mão de obra (L/trab/dia)", 0),
+    ]:
+        display_df[col] = display_df[col].apply(lambda v: fmt_br(v, decimals))
+
     with st.container(border=True):
+        render_sr_only(
+            f"Tabela — ranking de produtores ordenado por {metric.lower()}, "
+            f"{'do maior para o menor' if order == 'Maior primeiro' else 'do menor para o maior'}."
+        )
         st.dataframe(
-            ranking_df,
+            display_df,
             use_container_width=True,
             hide_index=True,
-            height=min(600, 46 + 38 * len(ranking_df)),
-            column_config={
-                "Produtividade média (L/vaca/d)": st.column_config.NumberColumn(format="%.1f"),
-                "Produtividade da terra (L/ha/ano)": st.column_config.NumberColumn(format="%.0f"),
-                "Produtividade da mão de obra (L/trab/dia)": st.column_config.NumberColumn(format="%.0f"),
-            },
+            height=min(600, 46 + 38 * len(display_df)),
         )
     if len(ranking_df) < n_total:
         st.caption(
             f":material/info: {n_total - len(ranking_df)} produtor(es) sem dado suficiente pra calcular "
             f'"{metric}" foram omitidos do ranking.'
+        )
+    if is_outlier.any():
+        st.caption(
+            f":material/warning: **{int(is_outlier.sum())}** produtor(es) marcado(s) como **Atípico** — "
+            f'"{metric}" a 5× ou mais de distância da mediana da amostra, o que costuma indicar um valor de '
+            "área ou mão de obra muito pequeno usado no cálculo (possível erro de digitação na base), não "
+            "necessariamente um resultado real. Confira antes de destacar essas linhas como referência."
         )
 
 

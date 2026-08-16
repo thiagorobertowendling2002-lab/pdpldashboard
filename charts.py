@@ -13,8 +13,15 @@ GRID_COLOR = "rgba(0,0,0,0.06)"
 # grosso do dedo) esse excesso de ícones piora. Mantém zoom/pan/reset/
 # download porque a matriz de correlação completa depende de zoom pra
 # explorar (instrução própria da tela é "role e amplie").
+# "displayModeBar": "hover" (em vez de sempre visível) resolve o resto do
+# problema: em tela estreita a modebar ficava sobreposta ao rótulo da barra
+# do topo o tempo todo, sem jeito de "tirar do caminho" — só aparecendo ao
+# passar o mouse, ela nunca chega a competir com o dado em quem só olha (ou
+# usa o dedo) sem gesto de hover disponível. Pinça/arrasto pra zoom/pan
+# continuam funcionando por gesto direto no gráfico, sem depender do ícone.
 PLOTLY_CONFIG = {
     "displaylogo": False,
+    "displayModeBar": "hover",
     "modeBarButtonsToRemove": [
         "select2d",
         "lasso2d",

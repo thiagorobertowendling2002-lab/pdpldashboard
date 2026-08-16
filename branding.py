@@ -19,7 +19,6 @@ COLOR_PRIMARY = "#1C9CB4"  # teal do arco/logo PDPL
 COLOR_PRIMARY_ACCESSIBLE = "#157B8F"
 COLOR_SECONDARY = "#008448"  # verde do logo PDPL
 COLOR_TEXT = "#181818"  # preto dos traços/texto do logo
-COLOR_BG = "#F5F8F9"
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -148,6 +147,11 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
     if total == 0:
         return
     pcts = _largest_remainder_pct([n for _, n in ordered], total)
+    clean_labels = [re.sub(r"^\d+\)\s*", "", cat) for cat, _ in ordered]
+    # Resumo textual pro leitor de tela — os rótulos ao redor/na legenda já
+    # são texto real, mas cada um sozinho não diz o total; isso junta tudo
+    # numa única frase, igual o card de KPI faz com rótulo+valor.
+    aria_summary = "; ".join(f"{lbl}: {pct}%" for lbl, pct in zip(clean_labels, pcts))
 
     per_row = 10
     gap = 3
@@ -157,18 +161,20 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
     label_w = 132
 
     icons_html = "".join(_pictogram_cow_svg(color, icon_size) * pct for pct, color in zip(pcts, colors))
+    # aria-hidden: as 100 vaquinhas repetidas são só decoração do percentual
+    # já anunciado pelo aria-label do wrapper — sem isso um leitor de tela
+    # tenta descrever cada uma das 100 (ou passar por 100 nós sem nome).
     grid_html = (
-        f'<div style="display:grid;grid-template-columns:repeat({per_row}, {icon_size}px);gap:{gap}px;">'
+        f'<div aria-hidden="true" style="display:grid;grid-template-columns:repeat({per_row}, {icon_size}px);gap:{gap}px;">'
         f"{icons_html}</div>"
     )
 
     left_labels, right_labels = [], []
     cursor = 0
-    for idx, ((cat, n), pct, color) in enumerate(zip(ordered, pcts, colors)):
+    for idx, ((cat, n), pct, color, clean_label) in enumerate(zip(ordered, pcts, colors, clean_labels)):
         mid_row = (cursor + pct / 2) / per_row
         cursor += pct
         top_px = max(0, mid_row * cell - 15)
-        clean_label = re.sub(r"^\d+\)\s*", "", cat)
         is_left = idx % 2 == 0
         align_style = "right:0;text-align:right;" if is_left else "left:0;text-align:left;"
         label_html = (
@@ -194,19 +200,20 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
         f'<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;'
         f'color:{COLOR_TEXT};white-space:nowrap;">'
         f'<span style="width:10px;height:10px;border-radius:3px;background:{color};flex-shrink:0;"></span>'
-        f"{re.sub(r'^\d+\)\s*', '', cat)} — {pct}%</span>"
-        for (cat, n), pct, color in zip(ordered, pcts, colors)
+        f"{clean_label} — {pct}%</span>"
+        for clean_label, pct, color in zip(clean_labels, pcts, colors)
     )
 
     st.markdown(
-        f'<div class="pictogram-wrap" style="container-type:inline-size;margin:0.4rem 0 0.9rem 0;">'
+        f'<div class="pictogram-wrap" role="img" aria-label="{aria_summary}" '
+        f'style="container-type:inline-size;margin:0.4rem 0 0.9rem 0;">'
         f'<div class="pictogram-around" style="display:grid;'
         f"grid-template-columns:{label_w}px {grid_w}px {label_w}px;"
         f'column-gap:16px;align-items:start;width:{around_width}px;max-width:100%;margin:0 auto;'
         f'min-height:{grid_h}px;">'
         f"{left_html}{grid_html}{right_html}</div>"
         f'<div class="pictogram-stacked" style="display:none;flex-direction:column;align-items:center;gap:0.6rem;">'
-        f'<div style="display:grid;grid-template-columns:repeat({per_row}, 1fr);gap:{gap}px;'
+        f'<div aria-hidden="true" style="display:grid;grid-template-columns:repeat({per_row}, 1fr);gap:{gap}px;'
         f"max-width:{grid_w}px;width:100%;\">{icons_html}</div>"
         f'<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.3rem 0.7rem;">'
         f"{stacked_legend_items}</div></div></div>"
@@ -241,8 +248,14 @@ def inject_css() -> None:
         html, body, [class*="css"] {{
             font-family: 'Poppins', sans-serif;
         }}
+        /* Mesmo gradiente da tela de login (teal -> branco -> verde, cores da
+           marca), estendido pro dashboard depois de autenticar — fixo em
+           relação à janela (não rola junto com o conteúdo), então uma
+           página comprida não repete nem corta o gradiente no meio. */
         .stApp {{
-            background-color: {COLOR_BG};
+            background-image: radial-gradient(circle at bottom, #2d788b 12%, #ffffff 43%, #2f6f42 97%);
+            background-attachment: fixed;
+            background-size: cover;
         }}
         .block-container {{
             max-width: 99vw !important;
@@ -344,18 +357,26 @@ def inject_css() -> None:
             }}
         }}
 
-        /* Navegação "Seções da pesquisa" (12 botões): mesmo raciocínio do
-           .kpi-row acima — sem isso o segmented_control nativo quebra linha por
-           largura disponível (flex-wrap), o que dava 8 em cima / 4 embaixo e
-           mudava conforme a sidebar era aberta/fechada. Grid fixo de 6 colunas
-           força sempre 6+6; `.st-key-nav_sections` é a classe que o Streamlit
-           gera a partir do `key="nav_sections"` do widget, então só afeta esse
-           segmented_control (não o de "Ferramentas de análise", que tem só 3
-           opções e não precisa disso). */
-        .st-key-nav_sections div[role="radiogroup"] {{
+        /* Navegação "Seções da pesquisa" (12 botões) e "Ferramentas de
+           análise" (4 botões): mesmo raciocínio do .kpi-row acima — sem isso
+           o segmented_control nativo quebra linha por largura disponível
+           (flex-wrap), o que dava contagens desiguais por linha e mudava
+           conforme a sidebar era aberta/fechada. Grid fixo força sempre a
+           mesma contagem de colunas por fileira nas duas navegações — ambas
+           usam o mesmo widget lado a lado, então precisam do mesmo
+           tratamento pra não destoar uma da outra (uma em grid compacto, a
+           outra empilhada em 1 coluna). `.st-key-nav_sections`/`nav_tools`
+           são as classes que o Streamlit gera a partir do `key=` do widget. */
+        .st-key-nav_sections div[role="radiogroup"],
+        .st-key-nav_tools div[role="radiogroup"] {{
             display: grid !important;
-            grid-template-columns: repeat(6, 1fr) !important;
             gap: 0.4rem !important;
+        }}
+        .st-key-nav_sections div[role="radiogroup"] {{
+            grid-template-columns: repeat(6, 1fr) !important;
+        }}
+        .st-key-nav_tools div[role="radiogroup"] {{
+            grid-template-columns: repeat(4, 1fr) !important;
         }}
         .st-key-nav_sections div[role="radiogroup"] button,
         .st-key-nav_tools div[role="radiogroup"] button {{
@@ -364,9 +385,11 @@ def inject_css() -> None:
             min-height: 44px !important;
         }}
         /* Largura da coluna corta os rótulos mais longos ("Tecnologia e
-           Conforto Animal", "Manejo Reprodutivo e Sanitário") com reticências
-           por padrão — permite quebrar em 2 linhas em vez de truncar. */
-        .st-key-nav_sections div[role="radiogroup"] button p {{
+           Conforto Animal", "Comparação e Filtragem entre Parâmetros") com
+           reticências por padrão — permite quebrar em 2 linhas em vez de
+           truncar. */
+        .st-key-nav_sections div[role="radiogroup"] button p,
+        .st-key-nav_tools div[role="radiogroup"] button p {{
             white-space: normal !important;
             line-height: 1.2 !important;
         }}
@@ -384,10 +407,16 @@ def inject_css() -> None:
             .st-key-nav_sections div[role="radiogroup"] {{
                 grid-template-columns: repeat(3, 1fr) !important;
             }}
+            .st-key-nav_tools div[role="radiogroup"] {{
+                grid-template-columns: repeat(2, 1fr) !important;
+            }}
         }}
         @container (max-width: 480px) {{
             .st-key-nav_sections div[role="radiogroup"] {{
                 grid-template-columns: repeat(2, 1fr) !important;
+            }}
+            .st-key-nav_tools div[role="radiogroup"] {{
+                grid-template-columns: repeat(1, 1fr) !important;
             }}
         }}
         /* Mesmo movimento de hover dos cards de KPI (leve elevação + sombra),
@@ -602,13 +631,25 @@ def inject_css() -> None:
            ganha painel 100% opaco e véu de fundo translúcido — dá pra ver o
            dashboard atrás (dimmed), mas não dá pra ler, sem misturar com o
            conteúdo do painel. */
+        /* transition/animation: none nas duas camadas (véu + painel) mata o
+           fade de opacidade que o próprio BaseWeb aplica ao montar o modal —
+           um mecanismo diferente da nossa animação de deslizar (já removida
+           antes), só que com o mesmo sintoma visual: painel já na posição
+           final mas semitransparente por ~650-850ms, com a sidebar visível
+           por trás. Sem transição pra interpolar, o opacity:1 abaixo passa a
+           valer desde o primeiro frame, não só no final de uma animação. */
         div[data-testid="stDialog"] > div {{
             background: rgba(10, 30, 35, 0.6) !important;
+            opacity: 1 !important;
+            transition: none !important;
+            animation: none !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
             position: relative !important;
             background-color: white !important;
             opacity: 1 !important;
+            transition: none !important;
+            animation: none !important;
         }}
         /* Só o Filtro avançado (marcado via st.container(key="adv_filter_panel")
            — :has() localiza o diálogo certo sem precisar de mais nada do lado
@@ -724,12 +765,28 @@ def render_kpi_row(items: list[tuple[str, str, str, str]]) -> None:
     for icon, label, value, category in items:
         accent = _KPI_CATEGORY_COLORS[category]
         icon_html = f'<div class="kpi-icon-badge">{render_icon(icon, 18)}</div>' if icon else ""
+        # role="group" + aria-label: o valor e o rótulo já são texto visível,
+        # mas sem isso um leitor de tela lê os dois como dois nós soltos,
+        # sem deixar claro que "L/dia" ali é o valor DESTE rótulo específico
+        # — junta os dois numa única unidade anunciada de uma vez.
         cards.append(
-            f'<div class="kpi-card" style="--accent:{accent}">{icon_html}'
+            f'<div class="kpi-card" style="--accent:{accent}" role="group" aria-label="{label}: {value}">{icon_html}'
             f'<p class="kpi-label">{label}</p><p class="kpi-value">{value}</p>'
             f'<div class="kpi-accent-line"></div></div>'
         )
     st.markdown(f'<div class="kpi-row">{"".join(cards)}</div>', unsafe_allow_html=True)
+
+
+def render_sr_only(text: str) -> None:
+    """Texto só pra leitor de tela (tecnica "sr-only" padrão: encolhido a 1px
+    e cortado, mas sem display:none, que teria feito o leitor de tela ignorar
+    também) — descreve o conteúdo de um gráfico Plotly ou pictograma, que não
+    tem alternativa textual nativa nenhuma por padrão."""
+    st.markdown(
+        f'<span style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;'
+        f'overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">{text}</span>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_kpi_legend() -> None:
