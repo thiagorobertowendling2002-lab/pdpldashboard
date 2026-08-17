@@ -19,6 +19,7 @@ COLOR_PRIMARY = "#1C9CB4"  # teal do arco/logo PDPL
 COLOR_PRIMARY_ACCESSIBLE = "#157B8F"
 COLOR_SECONDARY = "#008448"  # verde do logo PDPL
 COLOR_TEXT = "#181818"  # preto dos traços/texto do logo
+COLOR_BG = "#F5F8F9"
 
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
@@ -248,14 +249,8 @@ def inject_css() -> None:
         html, body, [class*="css"] {{
             font-family: 'Poppins', sans-serif;
         }}
-        /* Mesmo gradiente da tela de login (teal -> branco -> verde, cores da
-           marca), estendido pro dashboard depois de autenticar — fixo em
-           relação à janela (não rola junto com o conteúdo), então uma
-           página comprida não repete nem corta o gradiente no meio. */
         .stApp {{
-            background-image: radial-gradient(circle at bottom, #2d788b 12%, #ffffff 43%, #2f6f42 97%);
-            background-attachment: fixed;
-            background-size: cover;
+            background-color: {COLOR_BG};
         }}
         .block-container {{
             max-width: 99vw !important;
@@ -625,20 +620,6 @@ def inject_css() -> None:
         [data-testid="stVerticalBlock"] {{
             border-radius: 14px !important;
             border-color: rgba(0,0,0,0.07) !important;
-        }}
-        /* Fundo branco sólido só nos cartões que mostram RESULTADO (gráfico
-           Plotly, tabela ou pictograma) — identificados pelo que carregam
-           dentro, não por classe/borda (o mesmo testid stVerticalBlock serve
-           tanto pro cartão com borda quanto pro bloco de layout sem borda ao
-           redor dele, sem diferença de classe entre os dois). Cartões de
-           CONTROLE (filtros, seletores de variável) ficam de fora de
-           propósito, deixando o gradiente de fundo aparecer neles também —
-           só o que carrega dado precisa de fundo opaco pra continuar
-           legível por cima do gradiente. */
-        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .js-plotly-plot),
-        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] [data-testid="stDataFrame"]),
-        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .pictogram-wrap) {{
-            background-color: white !important;
         }}
 
         /* Todo diálogo (Filtro avançado, Explorador, Comparação, Correlações)
