@@ -626,6 +626,20 @@ def inject_css() -> None:
             border-radius: 14px !important;
             border-color: rgba(0,0,0,0.07) !important;
         }}
+        /* Fundo branco sólido só nos cartões que mostram RESULTADO (gráfico
+           Plotly, tabela ou pictograma) — identificados pelo que carregam
+           dentro, não por classe/borda (o mesmo testid stVerticalBlock serve
+           tanto pro cartão com borda quanto pro bloco de layout sem borda ao
+           redor dele, sem diferença de classe entre os dois). Cartões de
+           CONTROLE (filtros, seletores de variável) ficam de fora de
+           propósito, deixando o gradiente de fundo aparecer neles também —
+           só o que carrega dado precisa de fundo opaco pra continuar
+           legível por cima do gradiente. */
+        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .js-plotly-plot),
+        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] [data-testid="stDataFrame"]),
+        [data-testid="stVerticalBlock"]:has(> [data-testid="stElementContainer"] .pictogram-wrap) {{
+            background-color: white !important;
+        }}
 
         /* Todo diálogo (Filtro avançado, Explorador, Comparação, Correlações)
            ganha painel 100% opaco e véu de fundo translúcido — dá pra ver o
