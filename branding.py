@@ -694,14 +694,25 @@ def inject_css() -> None:
         }}
         .legend-swatch {{
             display: inline-flex;
-            align-items: center;
+            /* flex-start (não center) porque um rótulo comprido quebra em
+               várias linhas agora — centralizar alinharia a bolinha no meio
+               do bloco de texto inteiro, flutuando longe da 1ª linha. */
+            align-items: flex-start;
             gap: 0.4rem;
-            white-space: nowrap;
+            /* min-width:0 sobrescreve o min-width:auto padrão de item flex —
+               sem isso, o navegador nunca encolhe o texto abaixo da largura
+               "sem quebra" mesmo com white-space:normal, e um rótulo longo
+               (pergunta inteira da pesquisa) simplesmente vaza pra fora do
+               cartão em vez de quebrar linha. */
+            white-space: normal;
+            min-width: 0;
+            max-width: 100%;
         }}
         .legend-dot {{
             display: inline-block;
             width: 12px;
             height: 12px;
+            margin-top: 0.2em;
             border-radius: 3px;
             flex-shrink: 0;
         }}

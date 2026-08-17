@@ -77,55 +77,40 @@ def _truncate(label: str, max_len: int = 18) -> str:
     return label if len(label) <= max_len else label[: max_len - 1].rstrip() + "…"
 
 
-def _wrap(label: str, width: int = 22) -> str:
-    """Quebra o texto em várias linhas (sem cortar palavras) usando <br>, pra caber
-    a frase inteira em vez de truncar com "..."."""
-    words = label.split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        if len(candidate) > width and current:
-            lines.append(current)
-            current = word
-        else:
-            current = candidate
-    if current:
-        lines.append(current)
-    return "<br>".join(lines)
-
-
-def donut(counts: pd.Series, height: int = 320) -> go.Figure:
+def donut(counts: pd.Series, height: int = 320) -> tuple[go.Figure, list[tuple[str, str]]]:
+    """Rosca sem rótulo "outside": um rótulo fora da fatia (a versão antiga
+    desta função) precisa de espaço horizontal garantido dos dois lados, e
+    com categoria de nome comprido ("Utiliza os indicadores econômicos de
+    forma sistemática...") numa coluna estreita (tablet, celular, sidebar
+    aberta) esse espaço nunca é suficiente — nem com automargin, que só
+    consegue crescer a margem até o limite do próprio contêiner, sem como
+    inventar espaço que não existe. A legenda abaixo (mesma técnica HTML com
+    flex-wrap já usada no gráfico de categorias paralelas) quebra livremente
+    em qualquer largura e nunca corta, então devolve os itens pro chamador
+    desenhar com `render_color_legend`."""
     palette = [COLOR_PRIMARY, COLOR_SECONDARY, "#F2A65A", "#7B6FD1", "#D1667B"]
     colors = (palette * (len(counts) // len(palette) + 1))[: len(counts)]
     full_labels = counts.index.astype(str).tolist()
     total = counts.values.sum()
-    text = [f"{_wrap(lbl)}<br>{v / total:.1%}" for lbl, v in zip(full_labels, counts.values)]
     fig = go.Figure(
         go.Pie(
             labels=full_labels,
             values=counts.values,
             hole=0.55,
             marker=dict(colors=colors, line=dict(color="white", width=2)),
-            text=text,
-            textinfo="text",
-            textposition="outside",
-            textfont=dict(size=10),
+            textinfo="percent",
+            textposition="inside",
+            insidetextorientation="horizontal",
+            textfont=dict(size=11, color="white"),
             customdata=full_labels,
             hovertemplate="%{customdata}<br>%{value} produtores (%{percent})<extra></extra>",
             showlegend=False,
-            # Sem isso, o rótulo "outside" de uma fatia perto do topo/base do
-            # círculo (comum em distribuições bem desiguais, tipo 90%/10%)
-            # ultrapassa a margem fixa de 20px e é cortado pela borda do
-            # cartão — automargin deixa o Plotly crescer a margem sozinho
-            # até caber todo rótulo, em vez de um valor fixo que só cobre o
-            # caso médio.
-            automargin=True,
         )
     )
-    fig = _base_layout(fig, height + 40)
-    fig.update_layout(showlegend=False, margin=dict(t=20, b=20, l=110, r=110))
-    return fig
+    fig = _base_layout(fig, height)
+    fig.update_layout(showlegend=False, margin=dict(t=8, b=8, l=8, r=8))
+    legend_items = [(f"{lbl} — {v / total:.1%}", color) for lbl, v, color in zip(full_labels, counts.values, colors)]
+    return fig, legend_items
 
 
 def ranked_bar(

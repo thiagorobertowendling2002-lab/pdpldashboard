@@ -397,15 +397,20 @@ def render_categorical_grid(cat_vars: list[dict], key_prefix: str) -> None:
                     render_pictogram(counts, category_order=_ORDINAL_CATEGORICAL_ORDERS[var["label"]], colors=pictogram_colors)
                     continue
                 ordinal_order = _ORDINAL_CATEGORICAL_ORDERS.get(var["label"])
+                legend_items = None
                 if ordinal_order:
                     fig = charts.ranked_bar(counts, category_order=ordinal_order)
+                elif len(counts) <= 5:
+                    fig, legend_items = charts.donut(counts)
                 else:
-                    fig = charts.donut(counts) if len(counts) <= 5 else charts.ranked_bar(counts)
+                    fig = charts.ranked_bar(counts)
                 render_sr_only(
                     f"Gráfico — {var['label']}. "
                     + "; ".join(f"{cat}: {int(n)} produtores" for cat, n in counts.sort_values(ascending=False).items())
                 )
                 st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_cat_{i}_{j}", config=charts.PLOTLY_CONFIG)
+                if legend_items:
+                    render_color_legend(legend_items)
 
 
 def render_numeric_groups(groups: list[dict], key_prefix: str) -> None:
