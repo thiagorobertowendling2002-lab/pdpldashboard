@@ -114,6 +114,13 @@ def donut(counts: pd.Series, height: int = 320) -> go.Figure:
             customdata=full_labels,
             hovertemplate="%{customdata}<br>%{value} produtores (%{percent})<extra></extra>",
             showlegend=False,
+            # Sem isso, o rótulo "outside" de uma fatia perto do topo/base do
+            # círculo (comum em distribuições bem desiguais, tipo 90%/10%)
+            # ultrapassa a margem fixa de 20px e é cortado pela borda do
+            # cartão — automargin deixa o Plotly crescer a margem sozinho
+            # até caber todo rótulo, em vez de um valor fixo que só cobre o
+            # caso médio.
+            automargin=True,
         )
     )
     fig = _base_layout(fig, height + 40)
