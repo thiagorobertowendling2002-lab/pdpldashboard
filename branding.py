@@ -129,6 +129,20 @@ def render_login_background() -> None:
         [data-testid="stSidebar"], [data-testid="stSidebarCollapseButton"] {
             display: none !important;
         }
+        /* "Press Enter to submit form" é texto fixo do próprio Streamlit,
+           sem opção de tradução via API — único form do app é este de
+           login, então o truque abaixo (encolher o texto original a 0 e
+           desenhar a tradução via ::after) não corre risco de acertar outro
+           texto sem querer em nenhum outro lugar do dashboard. */
+        [data-testid="InputInstructions"] span {
+            font-size: 0 !important;
+        }
+        [data-testid="InputInstructions"] span::after {
+            content: "Pressione Enter para confirmar";
+            font-size: 12px;
+            color: rgba(24, 24, 24, 0.6);
+            font-family: 'Poppins', sans-serif;
+        }
         </style>
         """,
         unsafe_allow_html=True,
