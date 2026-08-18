@@ -78,7 +78,16 @@ def _clean_label(text: str) -> str:
 
 @st.cache_data
 def load_raw() -> pd.DataFrame:
-    return pd.read_excel(DATA_PATH, sheet_name="DADOS 1")
+    df = pd.read_excel(DATA_PATH, sheet_name="DADOS 1")
+    # A planilha de origem tem pelo menos um valor com espaço sobrando (ex:
+    # "Guiricema " em Município) — sem isso, esse município aparece com um
+    # espaço extra antes de "MG" no rótulo do Ranking e é um valor
+    # tecnicamente diferente de uma futura linha "Guiricema" sem espaço no
+    # filtro. Aplica só a colunas de texto; não mexe em valores numéricos
+    # nem no agrupamento por vírgula das colunas de múltipla escolha.
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].str.strip()
+    return df
 
 
 @st.cache_data
