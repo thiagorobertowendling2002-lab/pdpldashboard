@@ -423,6 +423,30 @@ def inject_css(dark: bool = False) -> None:
         [role="listbox"] *, [role="option"] * {{
             color: {text} !important;
         }}
+        /* A caixa FECHADA do multiselect/selectbox (antes de abrir a lista)
+           não é mais BaseWeb nessa versão do Streamlit — é
+           react-aria-components (confirmado via inspeção: a classe real é
+           ".react-aria-ComboBox"/".react-aria-Select", não
+           data-baseweb="select"). Cobre os dois níveis candidatos (o
+           wrapper e o grupo interno) porque não dá pra confirmar à
+           distância qual dos dois carrega o fundo de fato. */
+        .react-aria-ComboBox, .react-aria-ComboBox [role="group"],
+        [data-testid="stMultiSelectTagsContainer"],
+        .react-aria-Select, .react-aria-Select [role="group"] {{
+            background-color: {surface} !important;
+            border-color: {border} !important;
+        }}
+        .react-aria-ComboBox input, .react-aria-Select {{
+            color: {text} !important;
+        }}
+        /* O texto digitado (regra acima) e o placeholder ("Escolha uma
+           opção") são dois seletores CSS diferentes — sem isso o
+           placeholder ficava quase invisível (cor escura herdada do tema
+           nativo sobre o fundo escuro). */
+        .react-aria-ComboBox input::placeholder {{
+            color: {text} !important;
+            opacity: 0.55;
+        }}
         [data-testid="stDataFrame"] {{
             border: 1px solid {border} !important;
             border-radius: 8px;
