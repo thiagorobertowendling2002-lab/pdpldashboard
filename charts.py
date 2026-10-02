@@ -6,6 +6,36 @@ from branding import COLOR_PRIMARY, COLOR_SECONDARY, COLOR_TEXT
 FONT = "Poppins, sans-serif"
 GRID_COLOR = "rgba(0,0,0,0.06)"
 
+_DARK = False
+_GRID_COLOR_DARK = "rgba(255,255,255,0.10)"
+_STROKE_DARK = "#141C2E"  # contorno dos marcadores no escuro = cor do card, não branco puro
+
+
+def set_dark(dark: bool) -> None:
+    """Liga/desliga o tema escuro de todo gráfico chamado depois disso neste
+    processo — pensado pra ser setado uma vez no topo da página (como
+    branding.inject_css(dark=...)), não trocado no meio de uma renderização."""
+    global _DARK
+    _DARK = dark
+
+
+def _theme() -> dict:
+    if _DARK:
+        return {
+            "text": "#E7ECF3",
+            "grid": _GRID_COLOR_DARK,
+            "stroke": _STROKE_DARK,
+            "zeroline": "rgba(255,255,255,0.3)",
+            "heatmap_zero": _STROKE_DARK,
+        }
+    return {
+        "text": COLOR_TEXT,
+        "grid": GRID_COLOR,
+        "stroke": "white",
+        "zeroline": "rgba(0,0,0,0.25)",
+        "heatmap_zero": "#F5F8F9",
+    }
+
 # Passar em todo st.plotly_chart(..., config=PLOTLY_CONFIG). Tira os ícones
 # menos essenciais da modebar (select/lasso de área, escala automática,
 # comparação de hover) — ela já colidia com rótulo de dado em alguns cantos
@@ -50,7 +80,7 @@ def _base_layout(fig: go.Figure, height: int, legend_below: bool = False) -> go.
         margin=dict(t=16, b=48 if legend_below else 8, l=8, r=16),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=FONT, color=COLOR_TEXT, size=12),
+        font=dict(family=FONT, color=_theme()["text"], size=12),
         legend=legend,
     )
     return fig
@@ -97,7 +127,7 @@ def donut(counts: pd.Series, height: int = 320) -> tuple[go.Figure, list[tuple[s
             labels=full_labels,
             values=counts.values,
             hole=0.55,
-            marker=dict(colors=colors, line=dict(color="white", width=2)),
+            marker=dict(colors=colors, line=dict(color=_theme()["stroke"], width=2)),
             textinfo="percent",
             textposition="inside",
             insidetextorientation="horizontal",
@@ -137,7 +167,7 @@ def ranked_bar(
             hovertemplate=f"%{{y}}<br>%{{x}} {unit}<extra></extra>",
         )
     )
-    fig.update_layout(xaxis=dict(showgrid=True, gridcolor=GRID_COLOR), yaxis=dict(showgrid=False))
+    fig.update_layout(xaxis=dict(showgrid=True, gridcolor=_theme()["grid"]), yaxis=dict(showgrid=False))
     return _base_layout(fig, height)
 
 
@@ -145,14 +175,14 @@ def histogram(series: pd.Series, unit: str = "", height: int = 260) -> go.Figure
     fig = go.Figure(
         go.Histogram(
             x=series.dropna(),
-            marker=dict(color=COLOR_PRIMARY, line=dict(color="white", width=1)),
+            marker=dict(color=COLOR_PRIMARY, line=dict(color=_theme()["stroke"], width=1)),
             hovertemplate=f"%{{x}} {unit}<br>%{{y}} produtores<extra></extra>",
         )
     )
     fig.update_layout(
         bargap=0.08,
         xaxis=dict(title=unit, showgrid=False),
-        yaxis=dict(title="Produtores", showgrid=True, gridcolor=GRID_COLOR),
+        yaxis=dict(title="Produtores", showgrid=True, gridcolor=_theme()["grid"]),
     )
     return _base_layout(fig, height)
 
@@ -172,7 +202,7 @@ def box_by_category(df: pd.DataFrame, cat_col: str, num_col: str, unit: str = ""
         )
     fig.update_layout(
         showlegend=False,
-        yaxis=dict(title=unit, showgrid=True, gridcolor=GRID_COLOR),
+        yaxis=dict(title=unit, showgrid=True, gridcolor=_theme()["grid"]),
         xaxis=dict(showgrid=False),
     )
     return _base_layout(fig, height)
@@ -186,7 +216,7 @@ def scatter(df: pd.DataFrame, x_col: str, y_col: str, x_label: str = "", y_label
             x=x,
             y=y,
             mode="markers",
-            marker=dict(color=COLOR_PRIMARY, size=10, opacity=0.75, line=dict(color="white", width=1)),
+            marker=dict(color=COLOR_PRIMARY, size=10, opacity=0.75, line=dict(color=_theme()["stroke"], width=1)),
             hovertemplate=f"{x_label or x_col}: %{{x}}<br>{y_label or y_col}: %{{y}}<extra></extra>",
         )
     )
@@ -199,8 +229,8 @@ def scatter(df: pd.DataFrame, x_col: str, y_col: str, x_label: str = "", y_label
             go.Scatter(x=xs, y=ys, mode="lines", line=dict(color=COLOR_SECONDARY, width=2, dash="dash"), name="Tendência")
         )
     fig.update_layout(
-        xaxis=dict(title=x_label or x_col, showgrid=True, gridcolor=GRID_COLOR),
-        yaxis=dict(title=y_label or y_col, showgrid=True, gridcolor=GRID_COLOR),
+        xaxis=dict(title=x_label or x_col, showgrid=True, gridcolor=_theme()["grid"]),
+        yaxis=dict(title=y_label or y_col, showgrid=True, gridcolor=_theme()["grid"]),
         showlegend=False,
     )
     return _base_layout(fig, height)
@@ -215,7 +245,7 @@ def grouped_bar_crosstab(df: pd.DataFrame, cat_a: str, cat_b: str, height: int =
     fig.update_layout(
         barmode="group",
         xaxis=dict(showgrid=False),
-        yaxis=dict(title="Produtores", showgrid=True, gridcolor=GRID_COLOR),
+        yaxis=dict(title="Produtores", showgrid=True, gridcolor=_theme()["grid"]),
     )
     return _base_layout(fig, height, legend_below=True)
 
@@ -241,7 +271,7 @@ def composition_bar(items: list[tuple[str, float]], is_percent: bool = True, hei
         )
     )
     fig.update_layout(
-        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, title=unit),
+        xaxis=dict(showgrid=True, gridcolor=_theme()["grid"], title=unit),
         yaxis=dict(showgrid=False, autorange="reversed"),
     )
     return _base_layout(fig, max(height, 42 * len(items)))
@@ -364,8 +394,8 @@ def parallel_categories(
             line=dict(color=codes, colorscale=colorscale, shape="hspline"),
             hoveron="category",
             hoverinfo="count+probability",
-            labelfont=dict(size=12, family=FONT, color=COLOR_TEXT),
-            tickfont=dict(size=11, family=FONT, color=COLOR_TEXT),
+            labelfont=dict(size=12, family=FONT, color=_theme()["text"]),
+            tickfont=dict(size=11, family=FONT, color=_theme()["text"]),
             arrangement="freeform",
         )
     )
@@ -373,7 +403,7 @@ def parallel_categories(
         height=height,
         margin=dict(t=70, b=24, l=120, r=120),
         paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=FONT, color=COLOR_TEXT, size=12),
+        font=dict(family=FONT, color=_theme()["text"], size=12),
     )
     legend_items = [(cat, color_of[cat]) for cat in order]
     return fig, legend_items
@@ -440,7 +470,7 @@ def factor_association_bar(
     )
     fig.update_layout(
         yaxis=dict(autorange="reversed", showgrid=False, automargin=True),
-        xaxis=dict(showgrid=True, gridcolor=GRID_COLOR, zeroline=True, zerolinecolor="rgba(0,0,0,0.25)", zerolinewidth=1.5),
+        xaxis=dict(showgrid=True, gridcolor=_theme()["grid"], zeroline=True, zerolinecolor=_theme()["zeroline"], zerolinewidth=1.5),
         showlegend=False,
     )
     return _base_layout(fig, height)
@@ -469,7 +499,7 @@ def full_association_heatmap(matrix_wide: pd.DataFrame, p_wide: pd.DataFrame | N
             x=short_labels,
             y=short_labels,
             customdata=customdata,
-            colorscale=[[0, "#F5F8F9"], [1, COLOR_PRIMARY]],
+            colorscale=[[0, _theme()["heatmap_zero"]], [1, COLOR_PRIMARY]],
             zmin=0,
             zmax=1,
             colorbar=dict(title="força"),

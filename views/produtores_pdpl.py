@@ -9,6 +9,7 @@ import streamlit.components.v1 as components
 import charts
 from association import compute_association_matrix, factor_ranking, strength_label
 from branding import (
+    is_dark_mode,
     render_color_legend,
     render_footer,
     render_header,
@@ -18,9 +19,18 @@ from branding import (
     render_section_header,
     render_sr_only,
 )
-from data_loader import ESTRATO_ORDER, SECTION_ORDER, apply_filters, build_catalog, build_factor_list, filter_options, load_raw
+from data_loader import (
+    ESTRATO_ORDER,
+    SECTION_ORDER,
+    apply_filters,
+    build_catalog,
+    build_factor_list,
+    filter_options,
+    load_raw,
+)
 
-render_header("Produtores PDPL")
+charts.set_dark(is_dark_mode())
+render_header("Produtores PDPL", dark=is_dark_mode())
 
 try:
     raw = load_raw()

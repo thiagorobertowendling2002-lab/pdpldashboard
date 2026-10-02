@@ -1,7 +1,7 @@
 import streamlit as st
-from branding import APP_NAME, render_footer, render_header
+from branding import APP_NAME, is_dark_mode, render_footer, render_header
 
-render_header()
+render_header(dark=is_dark_mode())
 
 st.write(f"Bem-vindo(a), **{st.session_state.get('display_name', '')}**.")
 st.markdown(

@@ -53,8 +53,9 @@ def check_password() -> bool:
     return False
 
 
-def logout_button() -> None:
-    if st.sidebar.button("Sair"):
+def logout_button(container=None) -> None:
+    container = container if container is not None else st.sidebar
+    if container.button("Sair"):
         for key in ("authenticated", "username", "display_name"):
             st.session_state.pop(key, None)
         st.rerun()

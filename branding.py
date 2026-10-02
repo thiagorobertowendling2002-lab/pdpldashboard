@@ -21,6 +21,22 @@ COLOR_SECONDARY = "#008448"  # verde do logo PDPL
 COLOR_TEXT = "#181818"  # preto dos traços/texto do logo
 COLOR_BG = "#F5F8F9"
 
+# Paleta do modo escuro — mesma marca (teal/verde do PDPL acima continuam
+# valendo nos dois modos), só fundo/superfície/texto/borda trocam. Usada só
+# quando `inject_css(dark=True)`; o tema claro (padrão) não muda em nada.
+COLOR_BG_DARK = "#0B1120"
+COLOR_SURFACE_DARK = "#141C2E"
+COLOR_TEXT_DARK = "#E7ECF3"
+COLOR_BORDER_DARK = "rgba(255,255,255,0.10)"
+COLOR_SHADOW_DARK = "rgba(0,0,0,0.45)"
+COLOR_OVERLAY_DARK = "rgba(4,8,14,0.78)"
+
+# Espelha o `dark` passado pro último inject_css() — usado só pelas poucas
+# funções de render que desenham HTML fora do <style> de inject_css (hoje,
+# só a legenda empilhada do pictograma) e por isso não recebem o tema via
+# CSS normal; não precisa ser setado à parte, inject_css já faz isso.
+_DARK = False
+
 LOGO_PATH = Path(__file__).parent / "assets" / "logo.png"
 
 # Ícones em linha (estilo Feather) usados nos cards de KPI e cabeçalhos de seção,
@@ -211,9 +227,10 @@ def render_pictogram(counts: pd.Series, category_order: list[str], colors: list[
     # relance ao redor, célula estreita esconde ela e mostra a versão
     # empilhada (grid centralizado + legenda simples embaixo) em vez de
     # espremer/cortar a de relance.
+    _text = COLOR_TEXT_DARK if _DARK else COLOR_TEXT
     stacked_legend_items = "".join(
         f'<span style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.78rem;'
-        f'color:{COLOR_TEXT};white-space:nowrap;">'
+        f'color:{_text};white-space:nowrap;">'
         f'<span style="width:10px;height:10px;border-radius:3px;background:{color};flex-shrink:0;"></span>'
         f"{clean_label} — {pct}%</span>"
         for clean_label, pct, color in zip(clean_labels, pcts, colors)
@@ -254,7 +271,136 @@ def page_icon() -> Image.Image:
     return Image.open(LOGO_PATH)
 
 
-def inject_css() -> None:
+def is_dark_mode() -> bool:
+    return bool(st.session_state.get("dark_mode", False))
+
+
+def render_theme_toggle(container=None) -> None:
+    """Botão de tema escuro/claro — discreto de propósito (contorno fino, sem
+    preenchimento colorido; ver `.st-key-theme_toggle_btn` em inject_css), só
+    ícone, ao lado do "Sair". Chamado uma vez em app.py (vale pras duas
+    páginas, já que session_state é compartilhado). Cada página lê
+    `is_dark_mode()` e repassa pra `render_header(dark=...)` e
+    `charts.set_dark(...)`."""
+    container = container if container is not None else st.sidebar
+    dark = is_dark_mode()
+    icon = ":material/light_mode:" if dark else ":material/dark_mode:"
+    help_text = "Mudar pro tema claro" if dark else "Mudar pro tema escuro"
+    if container.button("", icon=icon, key="theme_toggle_btn", help=help_text):
+        st.session_state["dark_mode"] = not dark
+        st.rerun()
+
+
+def inject_css(dark: bool = False) -> None:
+    global _DARK
+    _DARK = dark
+    # Só o fundo/superfície/texto/borda trocam entre os modos — a marca (teal
+    # COLOR_PRIMARY, verde COLOR_SECONDARY) é a mesma nos dois, de propósito.
+    bg = COLOR_BG_DARK if dark else COLOR_BG
+    surface = COLOR_SURFACE_DARK if dark else "white"
+    text = COLOR_TEXT_DARK if dark else COLOR_TEXT
+    border = COLOR_BORDER_DARK if dark else "rgba(0,0,0,0.07)"
+    shadow = COLOR_SHADOW_DARK if dark else "rgba(15,60,70,0.05)"
+    overlay = COLOR_OVERLAY_DARK if dark else "rgba(10,30,35,0.6)"
+    # Só entra no claro nada (string vazia) — o tema claro já está validado e
+    # não deve mudar nem 1px; estes seletores (caixa do select, popover do
+    # dropdown) têm cor própria do BaseWeb que o resto do CSS acima não
+    # cobre, então só precisam de ajuste quando o escuro está ativo.
+    dark_extra = (
+        f"""
+        /* Barra de topo nativa do Streamlit — transparente com a sidebar
+           aberta, mas o próprio Streamlit troca pra um fundo branco sólido
+           quando ela está recolhida (classe interna diferente pra cada
+           estado). Sem isso vira uma faixa branca no topo da tela inteira
+           assim que a sidebar fecha. */
+        [data-testid="stHeader"] {{
+            background-color: {bg} !important;
+        }}
+        /* Texto "cru" do Streamlit (legendas, rótulos de filtro, parágrafos de
+           st.markdown sem cor própria) puxa a cor do tema nativo do servidor
+           (config.toml, sempre claro) — sem isso fica cinza-escuro quase
+           invisível sobre o fundo escuro. Não conflita com HTML custom nosso
+           (kpi-value, legendas coloridas etc): todo span/div ali tem a PRÓPRIA
+           cor inline, que sempre vence sobre esta regra geral do ancestral. */
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stCaptionContainer"],
+        [data-testid="stWidgetLabel"],
+        .stApp label {{
+            color: {text} !important;
+        }}
+        /* Menu nativo de navegação entre páginas (st.navigation) — mesmo
+           motivo das regras acima (cor do tema nativo do servidor, sempre
+           claro): o link da página INATIVA ficava quase invisível (texto
+           escuro sobre fundo escuro), e o da ATIVA tinha fundo cinza-claro
+           com texto escuro por cima — os dois ilegíveis no escuro. */
+        a[data-testid="stSidebarNavLink"], a[data-testid="stSidebarNavLink"] span {{
+            color: {text} !important;
+        }}
+        a[data-testid="stSidebarNavLink"][aria-current="page"],
+        a[data-testid="stSidebarNavLink"][aria-current="page"] span {{
+            background-color: {COLOR_PRIMARY_ACCESSIBLE} !important;
+            color: white !important;
+        }}
+        /* É um espaçador de 17px com a linha na border-bottom (não um
+           background) — a regra anterior preenchia o espaçador inteiro,
+           virando uma barra cinza sólida em vez de uma linha fina. */
+        [data-testid="stSidebarNavSeparator"] {{
+            border-bottom-color: {border} !important;
+        }}
+        /* Texto "cru" dentro de um botão de fundo sólido (teal/verde) herdava
+           a cor clara da regra de stMarkdownContainer acima em vez do branco
+           que o botão já define — texto quase-branco (não 100% branco) sobre
+           teal cai de 4.93:1 pra 4.15:1, abaixo do mínimo AA. Mais específico
+           que a regra geral, então vence pro texto QUE ESTÁ dentro do botão. */
+        div.stButton > button [data-testid="stMarkdownContainer"],
+        div[data-testid="stFormSubmitButton"] > button [data-testid="stMarkdownContainer"],
+        button[data-testid="stBaseButton-segmented_controlActive"] [data-testid="stMarkdownContainer"] {{
+            color: white !important;
+        }}
+        /* Texto de placeholder/valor dentro da caixa do select (ex: "Escolha
+           uma opção") é outro nó do BaseWeb com cor própria do tema nativo,
+           não coberto pelo fundo/borda já ajustados acima. */
+        [data-baseweb="select"] div, [data-baseweb="select"] span {{
+            color: {text} !important;
+        }}
+        /* A regra acima clareia o texto DENTRO de qualquer botão também (o
+           rótulo de um segmented_control é markdown por baixo) — sem um fundo
+           escuro correspondente nos pills NÃO ativos, o texto claro ficava
+           sobre o fundo branco nativo do botão (quase ilegível). O pill ATIVO
+           já tem fundo teal sólido próprio (regra mais abaixo), não precisa
+           disso. */
+        button[data-testid="stBaseButton-segmented_control"] {{
+            background-color: {surface} !important;
+            border-color: {border} !important;
+        }}
+        /* Ícone Material dos pills/cabeçalhos puxa a mesma cor neutra do tema
+           nativo (quase invisível no escuro) — a regra mais específica do
+           pill ATIVO (branco, já existente acima) continua vencendo aqui. */
+        span[data-testid="stIconMaterial"] {{
+            color: {text} !important;
+        }}
+        [data-baseweb="select"] > div {{
+            background-color: {surface} !important;
+            border-color: {border} !important;
+        }}
+        [data-baseweb="select"] input {{
+            color: {text} !important;
+        }}
+        ul[data-testid="stSelectboxVirtualDropdown"] {{
+            background-color: {surface} !important;
+        }}
+        ul[data-testid="stSelectboxVirtualDropdown"] li {{
+            background-color: {surface} !important;
+            color: {text} !important;
+        }}
+        [data-testid="stDataFrame"] {{
+            border: 1px solid {border} !important;
+            border-radius: 8px;
+        }}
+        """
+        if dark
+        else ""
+    )
     st.markdown(
         f"""
         <style>
@@ -264,7 +410,7 @@ def inject_css() -> None:
             font-family: 'Poppins', sans-serif;
         }}
         .stApp {{
-            background-color: {COLOR_BG};
+            background-color: {bg};
         }}
         .block-container {{
             max-width: 99vw !important;
@@ -298,7 +444,7 @@ def inject_css() -> None:
             line-height: 1.15 !important;
         }}
         h1, h2, h3, h4 {{
-            color: {COLOR_TEXT} !important;
+            color: {text} !important;
         }}
         div.stButton > button, div[data-testid="stFormSubmitButton"] > button {{
             background-color: {COLOR_PRIMARY_ACCESSIBLE};
@@ -311,6 +457,39 @@ def inject_css() -> None:
         div.stButton > button:hover, div[data-testid="stFormSubmitButton"] > button:hover {{
             background-color: {COLOR_SECONDARY};
             color: white;
+        }}
+        /* Toggle de tema: discreto de propósito (ao lado do "Sair", que
+           continua com o preenchimento cheio) — contorno fino em vez de
+           preenchimento colorido, só o ícone, mesmo peso visual nos dois
+           temas. Mais específico que a regra acima, então vence por cima
+           dela mesmo sem “!important”. */
+        .st-key-theme_toggle_btn button {{
+            background-color: transparent;
+            border: 1px solid {border};
+            color: {text};
+            width: 44px;
+            padding: 0;
+        }}
+        .st-key-theme_toggle_btn button:hover {{
+            background-color: {border};
+            border-color: {text};
+            color: {text};
+        }}
+        /* "Sair" + toggle de tema lado a lado mesmo em tela estreita — por
+           padrão o Streamlit empilha colunas abaixo de ~640px, mas aqui são
+           só 2 botões pequenos, cabem lado a lado em qualquer largura real
+           de celular. */
+        .st-key-sidebar_top_row [data-testid="stHorizontalBlock"] {{
+            flex-wrap: nowrap !important;
+        }}
+        /* As colunas do Streamlit sempre dividem a linha pela proporção
+           pedida (mesmo com conteúdo pequeno), deixando um vão grande entre
+           "Sair" (não usa a largura toda) e o toggle — encolhe as duas pro
+           tamanho do próprio conteúdo, então ficam coladas uma na outra. */
+        .st-key-sidebar_top_row [data-testid="stColumn"] {{
+            flex: 0 0 auto !important;
+            width: auto !important;
+            min-width: 0 !important;
         }}
         /* Botão fechar (X) dos diálogos: ícone de 10px num alvo clicável de só
            24x24 — abaixo do mínimo de 44x44 recomendado (WCAG 2.5.5). Aumenta
@@ -327,7 +506,7 @@ def inject_css() -> None:
             left: auto !important;
         }}
         .brand-header {{
-            background-color: white;
+            background-color: {surface};
             padding: 1rem 1.5rem;
             border-radius: 10px;
             margin-bottom: 1.5rem;
@@ -336,13 +515,13 @@ def inject_css() -> None:
             justify-content: center;
             gap: 1rem;
             border-bottom: 4px solid {COLOR_PRIMARY};
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            box-shadow: 0 2px 8px {shadow};
         }}
         .brand-header img {{
             height: 56px;
         }}
         .brand-header h1 {{
-            color: {COLOR_TEXT} !important;
+            color: {text} !important;
             font-size: 1.4rem;
             margin: 0;
             font-family: 'Montserrat', sans-serif;
@@ -455,11 +634,11 @@ def inject_css() -> None:
         .kpi-card {{
             position: relative;
             overflow: hidden;
-            background-color: white;
+            background-color: {surface};
             border-radius: 14px;
             padding: 1rem 1.1rem;
-            border: 1px solid rgba(0,0,0,0.07);
-            box-shadow: 0 2px 8px rgba(15,60,70,0.05);
+            border: 1px solid {border};
+            box-shadow: 0 2px 8px {shadow};
             transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
         }}
         /* Tint estático (sempre visível, bem sutil) + glow que intensifica no
@@ -523,7 +702,7 @@ def inject_css() -> None:
             position: relative;
             font-size: 1.55rem;
             font-weight: 700;
-            color: {COLOR_TEXT};
+            color: {text};
             margin: 0;
             line-height: 1.2;
             /* nowrap+break-word juntos eram contraditórios (nowrap sempre
@@ -540,7 +719,7 @@ def inject_css() -> None:
             width: 34px;
             height: 34px;
             border-radius: 9px;
-            background: color-mix(in srgb, var(--accent) 16%, white);
+            background: color-mix(in srgb, var(--accent) 16%, {surface});
             box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
             color: var(--accent);
             display: flex;
@@ -564,8 +743,8 @@ def inject_css() -> None:
            fora da tela mas a "fatia" no layout flex continua reservada, deixando
            um vão vazio e o dashboard desalinhado. */
         [data-testid="stSidebar"] {{
-            background-color: white;
-            border-right: 1px solid rgba(0,0,0,0.06);
+            background-color: {surface};
+            border-right: 1px solid {border};
         }}
         [data-testid="stSidebar"][aria-expanded="true"] {{
             min-width: 430px !important;
@@ -610,7 +789,7 @@ def inject_css() -> None:
             margin: 1.4rem 0 0.8rem 0;
             font-size: 1.05rem;
             font-weight: 700;
-            color: {COLOR_TEXT};
+            color: {text};
             display: flex;
             align-items: center;
             gap: 0.5rem;
@@ -633,7 +812,7 @@ def inject_css() -> None:
            contorno competiria com o dado em vez de só emoldurar. */
         [data-testid="stVerticalBlock"] {{
             border-radius: 14px !important;
-            border-color: rgba(0,0,0,0.07) !important;
+            border-color: {border} !important;
         }}
 
         /* Todo diálogo (Filtro avançado, Explorador, Comparação, Correlações)
@@ -648,14 +827,14 @@ def inject_css() -> None:
            por trás. Sem transição pra interpolar, o opacity:1 abaixo passa a
            valer desde o primeiro frame, não só no final de uma animação. */
         div[data-testid="stDialog"] > div {{
-            background: rgba(10, 30, 35, 0.6) !important;
+            background: {overlay} !important;
             opacity: 1 !important;
             transition: none !important;
             animation: none !important;
         }}
         div[data-testid="stDialog"] [role="dialog"] {{
             position: relative !important;
-            background-color: white !important;
+            background-color: {surface} !important;
             opacity: 1 !important;
             transition: none !important;
             animation: none !important;
@@ -676,7 +855,7 @@ def inject_css() -> None:
             max-height: 100vh !important;
             margin: 0 !important;
             border-radius: 0 18px 18px 0 !important;
-            box-shadow: 8px 0 32px rgba(0,0,0,0.22);
+            box-shadow: 8px 0 32px {shadow};
             /* Sem animação de deslizar aqui de propósito (era um translateX
                saindo de fora da tela) — o diálogo só ganha essa marcação
                (:has(.st-key-adv_filter_panel)) depois que o conteúdo já
@@ -699,7 +878,7 @@ def inject_css() -> None:
             gap: 0.5rem 1.1rem;
             padding: 0.3rem 0 0.6rem 0;
             font-size: 0.82rem;
-            color: {COLOR_TEXT};
+            color: {text};
         }}
         .legend-title {{
             font-weight: 600;
@@ -758,8 +937,9 @@ def inject_css() -> None:
             height: 3px !important;
         }}
         div[data-baseweb="tab-border"] {{
-            background-color: rgba(0,0,0,0.08) !important;
+            background-color: {border} !important;
         }}
+        {dark_extra}
         </style>
         """,
         unsafe_allow_html=True,
@@ -772,18 +952,29 @@ def inject_css() -> None:
 # real, e a cor comunica isso de relance em vez de só diferenciar cards.
 # Todas as 3 passam WCAG AA (4.5:1+) como texto sobre fundo branco.
 _KPI_CATEGORY_COLORS = {
-    "producao": COLOR_PRIMARY_ACCESSIBLE,  # #157B8F — 4.93:1
-    "perfil": COLOR_SECONDARY,  # #008448 — 4.78:1
-    "financeiro": "#8A6A1F",  # dourado escurecido — 5.05:1 (o #C99A2E original dava só 2.58:1)
+    "producao": COLOR_PRIMARY_ACCESSIBLE,  # #157B8F — 4.93:1 sobre branco
+    "perfil": COLOR_SECONDARY,  # #008448 — 4.78:1 sobre branco
+    "financeiro": "#8A6A1F",  # dourado escurecido — 5.05:1 sobre branco (o #C99A2E original dava só 2.58:1)
+}
+# Mesma lógica, invertida: sobre o fundo ESCURO do cartão (#141C2E) essas
+# versões escurecidas (feitas pra contrastar com branco) caem pra ~3.4-3.6:1,
+# abaixo do mínimo AA — aqui a direção certa é clarear, não escurecer. O teal
+# e o dourado originais (de antes do ajuste de acessibilidade pro claro) já
+# passam puros; só o verde precisou de uma versão mais clara que o original.
+_KPI_CATEGORY_COLORS_DARK = {
+    "producao": COLOR_PRIMARY,  # #1C9CB4 — 5.23:1 sobre #141C2E
+    "perfil": "#1FA860",  # verde mais claro que COLOR_SECONDARY — 5.53:1
+    "financeiro": "#C99A2E",  # dourado original (pré-ajuste) — 6.59:1
 }
 
 
 def render_kpi_row(items: list[tuple[str, str, str, str]]) -> None:
     """items: lista de (chave_do_ícone, label, valor, categoria), categoria em
     "producao" | "perfil" | "financeiro"."""
+    colors = _KPI_CATEGORY_COLORS_DARK if _DARK else _KPI_CATEGORY_COLORS
     cards = []
     for icon, label, value, category in items:
-        accent = _KPI_CATEGORY_COLORS[category]
+        accent = colors[category]
         icon_html = f'<div class="kpi-icon-badge">{render_icon(icon, 18)}</div>' if icon else ""
         # role="group" + aria-label: o valor e o rótulo já são texto visível,
         # mas sem isso um leitor de tela lê os dois como dois nós soltos,
@@ -813,11 +1004,12 @@ def render_kpi_legend() -> None:
     """Legenda das 3 categorias de KPI — cor sozinha nunca deve ser o único
     jeito de comunicar significado (WCAG 1.4.1), então isso deixa explícito
     por texto o que cada cor de render_kpi_row representa."""
+    colors = _KPI_CATEGORY_COLORS_DARK if _DARK else _KPI_CATEGORY_COLORS
     render_color_legend(
         [
-            ("Produção/operação", _KPI_CATEGORY_COLORS["producao"]),
-            ("Perfil do produtor", _KPI_CATEGORY_COLORS["perfil"]),
-            ("Financeiro", _KPI_CATEGORY_COLORS["financeiro"]),
+            ("Produção/operação", colors["producao"]),
+            ("Perfil do produtor", colors["perfil"]),
+            ("Financeiro", colors["financeiro"]),
         ]
     )
 
@@ -838,8 +1030,8 @@ def render_section_header(text: str, icon: str = "") -> None:
     st.markdown(f'<div class="section-header">{icon_html}{text}</div>', unsafe_allow_html=True)
 
 
-def render_header(subtitle: str | None = None) -> None:
-    inject_css()
+def render_header(subtitle: str | None = None, dark: bool = False) -> None:
+    inject_css(dark=dark)
     title_html = APP_NAME
     if subtitle:
         title_html = f"{APP_NAME} <span class='accent'>·</span> {subtitle}"
