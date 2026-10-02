@@ -373,6 +373,18 @@ def inject_css(dark: bool = False) -> None:
             background-color: {surface} !important;
             border-color: {border} !important;
         }}
+        /* Mesma correção acima, só que pelo seletor role="radiogroup" (já
+           usado por .st-key-nav_sections/.st-key-nav_tools pro grid de
+           navegação, comprovadamente estável na versão do Streamlit Cloud) —
+           o testid "stBaseButton-segmented_control" sozinho não bateu lá,
+           deixando o pill inativo com texto claro sobre fundo claro nativo
+           (quase ilegível). :not(...) poupa o pill ATIVO, que já tem o fundo
+           teal sólido dele (regra own acima, mais específica). */
+        .st-key-nav_sections [role="radiogroup"] button:not([data-testid="stBaseButton-segmented_controlActive"]),
+        .st-key-nav_tools [role="radiogroup"] button:not([data-testid="stBaseButton-segmented_controlActive"]) {{
+            background-color: {surface} !important;
+            border-color: {border} !important;
+        }}
         /* Ícone Material dos pills/cabeçalhos puxa a mesma cor neutra do tema
            nativo (quase invisível no escuro) — a regra mais específica do
            pill ATIVO (branco, já existente acima) continua vencendo aqui. */
