@@ -405,16 +405,22 @@ def inject_css(dark: bool = False) -> None:
             background-color: {surface} !important;
             color: {text} !important;
         }}
-        /* Mesmo problema do pill de navegação: o testid acima não bateu na
-           versão do Streamlit Cloud, deixando o menu suspenso (a lista que
-           abre ao clicar num filtro) branco. [data-baseweb] e role="option"
-           vêm da biblioteca por baixo do Streamlit (BaseWeb), não do
-           Streamlit em si — mais estável entre versões. */
-        [data-baseweb="popover"] {{
+        /* Mesmo problema do pill de navegação: o testid/data-baseweb acima
+           não bateram na versão do Streamlit Cloud, deixando o menu
+           suspenso (a lista que abre ao clicar num filtro) branco.
+           role="listbox"/role="option" são do padrão de acessibilidade
+           ARIA — não dependem de nenhuma lib/versão específica, mais
+           estável que qualquer coisa própria do Streamlit ou do BaseWeb.
+           O texto de cada opção fica aninhado 2-3 divs dentro do item (cada
+           um podendo ter cor própria herdada do tema nativo), então o `*`
+           no final força a cor em QUALQUER profundidade, não só no item. */
+        [data-baseweb="popover"], [role="listbox"] {{
             background-color: {surface} !important;
         }}
-        [data-baseweb="popover"] li[role="option"] {{
+        [role="option"] {{
             background-color: {surface} !important;
+        }}
+        [role="listbox"] *, [role="option"] * {{
             color: {text} !important;
         }}
         [data-testid="stDataFrame"] {{
