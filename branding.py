@@ -405,6 +405,18 @@ def inject_css(dark: bool = False) -> None:
             background-color: {surface} !important;
             color: {text} !important;
         }}
+        /* Mesmo problema do pill de navegação: o testid acima não bateu na
+           versão do Streamlit Cloud, deixando o menu suspenso (a lista que
+           abre ao clicar num filtro) branco. [data-baseweb] e role="option"
+           vêm da biblioteca por baixo do Streamlit (BaseWeb), não do
+           Streamlit em si — mais estável entre versões. */
+        [data-baseweb="popover"] {{
+            background-color: {surface} !important;
+        }}
+        [data-baseweb="popover"] li[role="option"] {{
+            background-color: {surface} !important;
+            color: {text} !important;
+        }}
         [data-testid="stDataFrame"] {{
             border: 1px solid {border} !important;
             border-radius: 8px;
